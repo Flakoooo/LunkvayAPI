@@ -1,0 +1,6 @@
+# папки сборки
+[Bb]in/
+[Oo]bj/
+
+# файлы разработки
+appsettings.Development.json
