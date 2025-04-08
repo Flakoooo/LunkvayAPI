@@ -1,6 +1,6 @@
-using Lunkvay.src.Services.Interfaces;
+using LunkvayAPI.src.Services.Interfaces;
 
-namespace Lunkvay.src.Services 
+namespace LunkvayAPI.src.Services 
 {
     public class HelloService : IHelloService
     {

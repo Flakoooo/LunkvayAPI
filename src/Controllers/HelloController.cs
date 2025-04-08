@@ -1,7 +1,7 @@
-using Lunkvay.src.Services.Interfaces;
+using LunkvayAPI.src.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Lunkvay.src.Controllers
+namespace LunkvayAPI.src.Controllers
 {
     [ApiController]
     //[Route("api/[controller]")] //controller вернет название контроллера, тоесть hello

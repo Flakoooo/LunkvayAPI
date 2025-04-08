@@ -1,7 +1,7 @@
-using Lunkvay.src.Services;
-using Lunkvay.src.Services.Interfaces;
+using LunkvayAPI.src.Services;
+using LunkvayAPI.src.Services.Interfaces;
 
-namespace Lunkvay.src 
+namespace LunkvayAPI.src 
 {
     public static class ServiceExtensions
     {

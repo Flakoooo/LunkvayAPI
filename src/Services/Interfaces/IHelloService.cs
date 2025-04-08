@@ -1,4 +1,4 @@
-namespace Lunkvay.src.Services.Interfaces {
+namespace LunkvayAPI.src.Services.Interfaces {
     public interface IHelloService 
     {
         Task<string> SayHello();

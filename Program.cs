@@ -1,6 +1,6 @@
-using Lunkvay.src;
+using LunkvayAPI.src;
 
-namespace Lunkvay
+namespace LunkvayAPI
 {
     public class Program
     {
