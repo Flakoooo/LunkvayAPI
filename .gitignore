@@ -1,7 +1,8 @@
 # папки сборки
-Properties/
+.vs/
 [Bb]in/
 [Oo]bj/
 
 # файлы разработки
 appsettings.Development.json
+Properties/launchSettings.json
