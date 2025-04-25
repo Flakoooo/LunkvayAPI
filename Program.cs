@@ -1,4 +1,5 @@
 using LunkvayAPI.src;
+using LunkvayAPI.src.Models.Utils;
 
 namespace LunkvayAPI
 {
@@ -7,6 +8,8 @@ namespace LunkvayAPI
         public static void Main(string[] args)
         {
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+            builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 
             //сервисы создаются до содания WebApplication
             builder.Services.AddCustomServices();
