@@ -1,123 +1,32 @@
 ﻿using LunkvayAPI.src.Models.Requests;
-using Microsoft.AspNetCore.Http;
+using LunkvayAPI.src.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using System.IdentityModel.Tokens.Jwt;
 
 namespace LunkvayAPI.src.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
-    public class AuthController : Controller
+    public class AuthController(IAuthService authService) : Controller
     {
+        private readonly IAuthService _authService = authService;
+        
         [HttpPost("login")]
-        public IActionResult Login(LoginRequest loginRequest)
-        {
-            var a = new JwtSecurityTokenHandler().WriteToken();
-        }
+        public IActionResult Login([FromBody] LoginRequest loginRequest) => Ok(_authService.Login(loginRequest));
 
-        public IActionResult Logout() { }
+        [HttpPost("logout")]
+        public IActionResult Logout() => Ok();
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        // GET: AuthController
-        public ActionResult Index()
-        {
-            return View();
-        }
-
-        // GET: AuthController/Details/5
-        public ActionResult Details(int id)
-        {
-            return View();
-        }
-
-        // GET: AuthController/Create
-        public ActionResult Create()
-        {
-            return View();
-        }
-
-        // POST: AuthController/Create
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public ActionResult Create(IFormCollection collection)
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             try
             {
-                return RedirectToAction(nameof(Index));
+                await _authService.Register(request);
+                return Ok();
             }
-            catch
+            catch (Exception ex)
             {
-                return View();
-            }
-        }
-
-        // GET: AuthController/Edit/5
-        public ActionResult Edit(int id)
-        {
-            return View();
-        }
-
-        // POST: AuthController/Edit/5
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public ActionResult Edit(int id, IFormCollection collection)
-        {
-            try
-            {
-                return RedirectToAction(nameof(Index));
-            }
-            catch
-            {
-                return View();
-            }
-        }
-
-        // GET: AuthController/Delete/5
-        public ActionResult Delete(int id)
-        {
-            return View();
-        }
-
-        // POST: AuthController/Delete/5
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public ActionResult Delete(int id, IFormCollection collection)
-        {
-            try
-            {
-                return RedirectToAction(nameof(Index));
-            }
-            catch
-            {
-                return View();
+                return BadRequest(ex.Message);
             }
         }
     }

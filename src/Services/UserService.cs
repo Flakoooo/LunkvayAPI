@@ -1,4 +1,5 @@
 ﻿using LunkvayAPI.src.Models.Entities;
+using LunkvayAPI.src.Models.Requests;
 using LunkvayAPI.src.Services.Interfaces;
 
 namespace LunkvayAPI.src.Services
@@ -22,9 +23,25 @@ namespace LunkvayAPI.src.Services
                 return null;
 
             // Проверяем пароль (в реальном проекте используйте BCrypt)
-            if (user.PasswordHash != HashPassword(password))
+            if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
                 return null;
 
+            return user;
+        }
+
+        public async Task<User> Register(RegisterRequest registerRequest)
+        {
+            if (_users.Any(u => u.Email == registerRequest.Email))
+                throw new ArgumentException("Email already exists");
+
+            var user = new User { 
+                Id = (_users.Count + 1).ToString(), 
+                Email = registerRequest.Email, 
+                PasswordHash = HashPassword(registerRequest.Password), 
+                FirstName = registerRequest.FirstName, 
+                LastName = registerRequest.LastName 
+            };
+            _users.Add(user);
             return user;
         }
     }

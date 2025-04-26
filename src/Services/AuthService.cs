@@ -2,7 +2,6 @@
 using LunkvayAPI.src.Models.Requests;
 using LunkvayAPI.src.Models.Utils;
 using LunkvayAPI.src.Services.Interfaces;
-using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -15,11 +14,14 @@ namespace LunkvayAPI.src.Services
     {
         private readonly JwtSettings _jwtSettings;
         private readonly IUserService _userService; // Сервис для проверки пользователя
+        private readonly ILogger<AuthService> _logger;
 
-        public AuthService(IOptions<JwtSettings> jwtOptions, IUserService userService)
+
+        public AuthService(IOptions<JwtSettings> jwtOptions, IUserService userService, ILogger<AuthService> logger)
         {
             _userService = userService;
             _jwtSettings = jwtOptions.Value;
+            _logger = logger;
 
             if (string.IsNullOrEmpty(_jwtSettings.Key)) 
                 throw new ArgumentNullException("JWT Key is missing!");
@@ -27,6 +29,7 @@ namespace LunkvayAPI.src.Services
 
         public async Task<string> Login(LoginRequest loginRequest)
         {
+            _logger.LogInformation("Осуществляется вход для {Email}", loginRequest.Email);
             // проверка существует ли пользователь
             User? user = await _userService.Authenticate(loginRequest.Email, loginRequest.Password) 
                 ?? throw new UnauthorizedAccessException("Invalid email or password.");
@@ -50,11 +53,17 @@ namespace LunkvayAPI.src.Services
                 issuer: _jwtSettings.Issuer,
                 audience: _jwtSettings.Audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(15), // 15 минут
+                expires: DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryTime), // время жизни
                 signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        public async Task Register(RegisterRequest registerRequest)
+        {
+            var register = _userService.Register(registerRequest);
+            await register;
         }
     }
 }
