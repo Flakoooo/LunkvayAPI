@@ -37,10 +37,10 @@ namespace LunkvayAPI.src.Services
             // создание данных (claims) пользователя
             var claims = new List<Claim>
             {
-                new(ClaimTypes.Name, user.Email),
-                new(ClaimTypes.NameIdentifier, user.Id),
-                new(ClaimTypes.GivenName, user.FirstName ?? ""),
-                new(ClaimTypes.Surname, user.LastName ?? "")
+                new("id", user.Id),
+                new("email", user.Email),
+                new("first_name", user.FirstName ?? ""),
+                new("last_name", user.LastName ?? "")
             };
 
             // получение ключа шифрования токена (сделать позже в отдельном файле)

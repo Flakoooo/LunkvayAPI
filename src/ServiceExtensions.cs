@@ -7,6 +7,8 @@ namespace LunkvayAPI.src
     {
         public static void AddCustomServices(this IServiceCollection services)
         {
+            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IHelloService, HelloService>();
         }
     }

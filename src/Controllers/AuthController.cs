@@ -11,7 +11,11 @@ namespace LunkvayAPI.src.Controllers
         private readonly IAuthService _authService = authService;
         
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginRequest loginRequest) => Ok(_authService.Login(loginRequest));
+        public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
+        {
+            var token = await _authService.Login(loginRequest);
+            return Ok(token);
+        }
 
         [HttpPost("logout")]
         public IActionResult Logout() => Ok();
