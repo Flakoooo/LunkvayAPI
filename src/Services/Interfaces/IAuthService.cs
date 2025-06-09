@@ -1,4 +1,5 @@
-﻿using LunkvayAPI.src.Models.Requests;
+﻿using LunkvayAPI.src.Models.Entities;
+using LunkvayAPI.src.Models.Requests;
 
 namespace LunkvayAPI.src.Services.Interfaces
 {

@@ -44,5 +44,11 @@ namespace LunkvayAPI.src.Services
             _users.Add(user);
             return user;
         }
+
+        public async Task<User> GetUserById(string userId)
+        {
+            var user = _users.Find(u => u.Id == userId);
+            return user ?? throw new Exception("Пользователь не найден");
+        }
     }
 }
