@@ -13,7 +13,7 @@ namespace LunkvayAPI.src.Services
     public class AuthService : IAuthService
     {
         private readonly JwtSettings _jwtSettings;
-        private readonly IUserService _userService; // Сервис для проверки пользователя
+        private readonly IUserService _userService;
         private readonly ILogger<AuthService> _logger;
 
 
@@ -29,7 +29,7 @@ namespace LunkvayAPI.src.Services
 
         public async Task<string> Login(LoginRequest loginRequest)
         {
-            _logger.LogInformation("Осуществляется вход для {Email}", loginRequest.Email);
+            _logger.LogInformation("({Date}) Осуществляется вход для {Email}", DateTime.Now, loginRequest.Email);
             // проверка существует ли пользователь
             User? user = await _userService.Authenticate(loginRequest.Email, loginRequest.Password) 
                 ?? throw new UnauthorizedAccessException("Invalid email or password.");

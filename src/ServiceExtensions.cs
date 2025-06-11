@@ -10,6 +10,7 @@ namespace LunkvayAPI.src
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IHelloService, HelloService>();
+            services.AddScoped<IFriendsService, FriendsService>();
         }
     }
 }

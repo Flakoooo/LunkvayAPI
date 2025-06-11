@@ -8,7 +8,11 @@ namespace LunkvayAPI.src.Services
     {
         private readonly List<User> _users =
             [
-                new User { Id = "1", Email = "ryan.gosling@gmail.com", PasswordHash = HashPassword("realhero"), FirstName = "Райан", LastName = "Гослинг" }
+                new User { Id = "1", Email = "ryan.gosling@gmail.com",      PasswordHash = HashPassword("realhero"),        FirstName = "Райан",    LastName = "Гослинг"    },
+                new User { Id = "2", Email = "rinat.goslinov@gmail.com",    PasswordHash = HashPassword("realhero"),        FirstName = "Ринат",    LastName = "Гослинов"   },
+                new User { Id = "3", Email = "christian.bale@gmail.com",    PasswordHash = HashPassword("fordvsferrari"),   FirstName = "Кристиан", LastName = "Бейл"       },
+                new User { Id = "4", Email = "tom.hardy@gmail.com",         PasswordHash = HashPassword("madmax"),          FirstName = "Том",      LastName = "Харди"      },
+                new User { Id = "5", Email = "jake.gyllenhaal@gmail.com",   PasswordHash = HashPassword("realhero"),        FirstName = "Джейк",    LastName = "Джилленхол" }
             ];
 
         private static string HashPassword(string password)
@@ -32,7 +36,7 @@ namespace LunkvayAPI.src.Services
         public async Task<User> Register(RegisterRequest registerRequest)
         {
             if (_users.Any(u => u.Email == registerRequest.Email))
-                throw new ArgumentException("Email already exists");
+                throw new ArgumentException("Пользователь с данной почтой уже существует");
 
             var user = new User { 
                 Id = (_users.Count + 1).ToString(), 
