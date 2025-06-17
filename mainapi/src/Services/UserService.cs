@@ -15,10 +15,7 @@ namespace LunkvayAPI.src.Services
                 new User { Id = "5", Email = "jake.gyllenhaal@gmail.com",   PasswordHash = HashPassword("realhero"),        FirstName = "Джейк",    LastName = "Джилленхол" }
             ];
 
-        private static string HashPassword(string password)
-        {
-            return BCrypt.Net.BCrypt.HashPassword(password);
-        }
+        private static string HashPassword(string password) => BCrypt.Net.BCrypt.HashPassword(password);
 
         public async Task<User?> Authenticate(string email, string password)
         {
@@ -26,7 +23,6 @@ namespace LunkvayAPI.src.Services
             if (user == null)
                 return null;
 
-            // Проверяем пароль (в реальном проекте используйте BCrypt)
             if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
                 return null;
 

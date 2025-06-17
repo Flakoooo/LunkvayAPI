@@ -30,11 +30,10 @@ namespace LunkvayAPI.src.Services
         public async Task<string> Login(LoginRequest loginRequest)
         {
             _logger.LogInformation("({Date}) Осуществляется вход для {Email}", DateTime.Now, loginRequest.Email);
-            // проверка существует ли пользователь
+
             User? user = await _userService.Authenticate(loginRequest.Email, loginRequest.Password) 
                 ?? throw new UnauthorizedAccessException("Invalid email or password.");
 
-            // создание данных (claims) пользователя
             var claims = new List<Claim>
             {
                 new("id", user.Id),
@@ -43,12 +42,10 @@ namespace LunkvayAPI.src.Services
                 new("last_name", user.LastName ?? "")
             };
 
-            // получение ключа шифрования токена (сделать позже в отдельном файле)
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
                 _jwtSettings.Key! ?? throw new InvalidOperationException("JWT Key not found."))
             );
 
-            // генерация токена
             var token = new JwtSecurityToken(
                 issuer: _jwtSettings.Issuer,
                 audience: _jwtSettings.Audience,

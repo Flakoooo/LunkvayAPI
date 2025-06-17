@@ -4,5 +4,6 @@
 [Oo]bj/
 
 # файлы разработки
-appsettings.Development.json
-Properties/launchSettings.json
+.env
+mainapi/appsettings.Development.json
+mainapi/Properties/launchSettings.json
