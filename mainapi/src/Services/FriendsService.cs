@@ -1,52 +1,54 @@
 ﻿using LunkvayAPI.src.Models.DTO;
-using LunkvayAPI.src.Models.Entities;
 using LunkvayAPI.src.Models.Enums;
 using LunkvayAPI.src.Services.Interfaces;
+using LunkvayAPI.src.Utils;
+using Microsoft.EntityFrameworkCore;
 
 namespace LunkvayAPI.src.Services
 {
-    public class FriendsService : IFriendsService
+    public class FriendsService(
+        ILogger<FriendsService> logger,
+        LunkvayDBContext lunkvayDBContext
+        ) : IFriendsService
     {
-        private readonly List<Relationships> _relationships = 
+        /*
+        private readonly List<Friendship> _relationships = 
             [
-                new Relationships { UserId1 = "2", UserId2 = "1", Status = RelationshipsStatus.Accepted, InitiatorId = "2", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-                new Relationships { UserId1 = "4", UserId2 = "1", Status = RelationshipsStatus.Pending, InitiatorId = "4", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-                new Relationships { UserId1 = "3", UserId2 = "1", Status = RelationshipsStatus.Accepted, InitiatorId = "3", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-                new Relationships { UserId1 = "1", UserId2 = "5", Status = RelationshipsStatus.Accepted, InitiatorId = "1", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
+                new Friendship { UserId1 = Guid.NewGuid(), UserId2 = Guid.NewGuid(), Status = FriendshipStatus.Accepted, InitiatorId = "2", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
+                new Friendship { UserId1 = Guid.NewGuid(), UserId2 = Guid.NewGuid(), Status = FriendshipStatus.Pending, InitiatorId = "4", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
+                new Friendship { UserId1 = Guid.NewGuid(), UserId2 = Guid.NewGuid(), Status = FriendshipStatus.Accepted, InitiatorId = "3", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
+                new Friendship { UserId1 = Guid.NewGuid(), UserId2 = Guid.NewGuid(), Status = FriendshipStatus.Accepted, InitiatorId = "1", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
             ];
+        */
 
-        private readonly IUserService _userService;
-        private readonly ILogger<FriendsService> _logger;
-
-        public FriendsService(IUserService userService, ILogger<FriendsService> logger)
-        {
-            _userService = userService;
-            _logger = logger;
-        }
+        private readonly ILogger<FriendsService> _logger = logger;
+        private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
 
         //короче штука для постепенного прогруза, надо будет чекнуть
         //public async Task<List<User>> GetUserFriends(string userId, int skip = 0, int take = 10)
-        public async Task<IEnumerable<UserDTO>> GetUserFriends(string userId)
+        public async Task<IEnumerable<UserDTO>> GetUserFriends(Guid userId)
         {
             _logger.LogInformation("({Date}) Осуществляется вывод друзей для {Id}", DateTime.Now, userId);
-            var acceptedRelationships = _relationships
-                .Where(r => r.Status == RelationshipsStatus.Accepted && (r.UserId1 == userId || r.UserId2 == userId))
-                .ToList();
 
-            var friendTasks = acceptedRelationships
-                .Select(async relationship =>
+            var friendIds = await _dbContext.Friendships
+                .Where(f => f.Status == FriendshipStatus.Accepted && (f.UserId1 == userId || f.UserId2 == userId))
+                .Select(f => f.UserId1 == userId ? f.UserId2 : f.UserId1)
+                .ToListAsync();
+
+            var friends = await _dbContext.Users
+                .Where(u => friendIds.Contains(u.Id) && !u.IsDeleted)
+                .Select(u => new UserDTO
                 {
-                    string friendId = relationship.UserId1 == userId
-                        ? relationship.UserId2
-                        : relationship.UserId1;
-                    User user = await _userService.GetUserById(friendId);
-                    return UserDTO.ConvertUserToDTO(user);
-                });
+                    Id = u.Id.ToString(),
+                    Email = u.Email,
+                    FirstName = u.FirstName,
+                    LastName = u.LastName
+                })
+                .ToListAsync();
 
-            var friends = await Task.WhenAll(friendTasks);
-            _logger.LogInformation("({Date}) Всего друзей {Count}", DateTime.Now, friends.Length);
+            _logger.LogInformation("({Date}) Всего друзей {Count}", DateTime.Now, friends.Count);
+            return friends;
             //return friends.Skip(skip).Take(take).ToList();
-            return [.. friends];
         }
     }
 }

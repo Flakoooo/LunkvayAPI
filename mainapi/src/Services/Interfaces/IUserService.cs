@@ -7,6 +7,6 @@ namespace LunkvayAPI.src.Services.Interfaces
     {
         public Task<User?> Authenticate(string email, string password);
         public Task<User> Register(RegisterRequest registerRequest);
-        public Task<User> GetUserById(string userId);
+        public Task<User> GetUserById(Guid userId);
     }
 }

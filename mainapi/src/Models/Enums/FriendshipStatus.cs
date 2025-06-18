@@ -1,6 +1,6 @@
 ﻿namespace LunkvayAPI.src.Models.Enums
 {
-    public enum RelationshipsStatus
+    public enum FriendshipStatus
     {
         Pending,   //Запрос отправлен
         Accepted,  //Дружба подтверждена

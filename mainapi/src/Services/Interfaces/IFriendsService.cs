@@ -4,6 +4,6 @@ namespace LunkvayAPI.src.Services.Interfaces
 {
     public interface IFriendsService
     {
-        public Task<IEnumerable<UserDTO>> GetUserFriends(string userId);
+        public Task<IEnumerable<UserDTO>> GetUserFriends(Guid userId);
     }
 }

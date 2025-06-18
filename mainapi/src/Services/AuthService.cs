@@ -23,8 +23,10 @@ namespace LunkvayAPI.src.Services
             _jwtSettings = jwtOptions.Value;
             _logger = logger;
 
+
+            string jwtKeyMissing = "JWT ключ не найден!";
             if (string.IsNullOrEmpty(_jwtSettings.Key)) 
-                throw new ArgumentNullException("JWT Key is missing!");
+                throw new ArgumentNullException(jwtKeyMissing);
         }
 
         public async Task<string> Login(LoginRequest loginRequest)
@@ -36,7 +38,7 @@ namespace LunkvayAPI.src.Services
 
             var claims = new List<Claim>
             {
-                new("id", user.Id),
+                new("id", user.Id.ToString()),
                 new("email", user.Email),
                 new("first_name", user.FirstName ?? ""),
                 new("last_name", user.LastName ?? "")

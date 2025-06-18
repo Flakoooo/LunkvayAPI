@@ -42,8 +42,12 @@ namespace LunkvayAPI.src.Controllers
         {
             try
             {
-                var user = await _userService.GetUserById(userId);
+                var user = await _userService.GetUserById(Guid.Parse(userId));
                 return Ok(user);
+            }
+            catch (FormatException)
+            {
+                return BadRequest("Неверный формат GUID");
             }
             catch (Exception ex)
             {

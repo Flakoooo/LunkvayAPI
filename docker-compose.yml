@@ -6,14 +6,12 @@ services:
       dockerfile: mainapi/Dockerfile
     ports:
       - "8080:8080"
-    depends_on:
-      - postgres
   postgres:
     image: postgres:latest
     environment:
-      POSTGRES_USER: postgres
+      POSTGRES_USER: flako
       POSTGRES_PASSWORD: 12345
-      POSTGRES_DB: myappdb
+      POSTGRES_DB: lunkvaydb
     ports:
       - "5432:5432"
     volumes:
