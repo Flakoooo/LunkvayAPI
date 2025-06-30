@@ -59,10 +59,10 @@ namespace LunkvayAPI.src.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public async Task Register(RegisterRequest registerRequest)
+        public async Task<User?> Register(RegisterRequest registerRequest)
         {
             var register = _userService.Register(registerRequest);
-            await register;
+            return await register;
         }
     }
 }

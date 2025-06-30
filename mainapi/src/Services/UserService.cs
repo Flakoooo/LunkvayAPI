@@ -22,9 +22,9 @@ namespace LunkvayAPI.src.Services
             return user;
         }
 
-        public async Task<User> Register(RegisterRequest registerRequest)
+        public async Task<User?> Register(RegisterRequest registerRequest)
         {
-            if (_dbContext.Users.Any(u => u.Email == registerRequest.Email))
+            if (await _dbContext.Users.AnyAsync(u => u.Email == registerRequest.Email))
                 throw new ArgumentException("Пользователь с данной почтой уже существует");
 
             var user = new User {  
@@ -34,7 +34,8 @@ namespace LunkvayAPI.src.Services
                 LastName = registerRequest.LastName ?? "" 
             };
             var result = await _dbContext.Users.AddAsync(user);
-            return user;
+            await _dbContext.SaveChangesAsync();
+            return result.Entity;
         }
 
         public async Task<User> GetUserById(Guid userId)

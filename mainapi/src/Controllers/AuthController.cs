@@ -28,8 +28,8 @@ namespace LunkvayAPI.src.Controllers
         {
             try
             {
-                await _authService.Register(request);
-                return Ok();
+                var user = await _authService.Register(request);
+                return Ok(user);
             }
             catch (Exception ex)
             {
