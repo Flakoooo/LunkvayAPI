@@ -1,0 +1,10 @@
+﻿namespace LunkvayAPI.src.Models.DTO
+{
+    public record class UserListItemDTO
+    {
+        public required string UserId { get; set; }
+        public required string FirstName { get; set; }
+        public string? LastName { get; set; }
+        public bool IsOnline { get; set; }
+    }
+}

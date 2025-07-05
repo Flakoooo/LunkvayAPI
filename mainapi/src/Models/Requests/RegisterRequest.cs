@@ -8,6 +8,9 @@ namespace LunkvayAPI.src.Models.Requests
         [EmailAddress(ErrorMessage = "Неверный формат почты")]
         public required string Email { get; set; }
 
+        [Required(ErrorMessage = "Имя пользователя не может быть пустым")]
+        public required string UserName { get; set; }
+
         [Required(ErrorMessage = "Пароль не может быть пустым")]
         [DataType(DataType.Password)]
         public required string Password { get; set; }

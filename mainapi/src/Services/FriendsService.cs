@@ -1,54 +1,88 @@
 ﻿using LunkvayAPI.src.Models.DTO;
+using LunkvayAPI.src.Models.Entities;
 using LunkvayAPI.src.Models.Enums;
 using LunkvayAPI.src.Services.Interfaces;
 using LunkvayAPI.src.Utils;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace LunkvayAPI.src.Services
 {
     public class FriendsService(
-        ILogger<FriendsService> logger,
+        ILogger<FriendsService> logger, 
         LunkvayDBContext lunkvayDBContext
         ) : IFriendsService
     {
-        /*
-        private readonly List<Friendship> _relationships = 
-            [
-                new Friendship { UserId1 = Guid.NewGuid(), UserId2 = Guid.NewGuid(), Status = FriendshipStatus.Accepted, InitiatorId = "2", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-                new Friendship { UserId1 = Guid.NewGuid(), UserId2 = Guid.NewGuid(), Status = FriendshipStatus.Pending, InitiatorId = "4", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-                new Friendship { UserId1 = Guid.NewGuid(), UserId2 = Guid.NewGuid(), Status = FriendshipStatus.Accepted, InitiatorId = "3", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-                new Friendship { UserId1 = Guid.NewGuid(), UserId2 = Guid.NewGuid(), Status = FriendshipStatus.Accepted, InitiatorId = "1", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-            ];
-        */
-
         private readonly ILogger<FriendsService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
 
-        //короче штука для постепенного прогруза, надо будет чекнуть
-        //public async Task<List<User>> GetUserFriends(string userId, int skip = 0, int take = 10)
-        public async Task<IEnumerable<UserDTO>> GetUserFriends(Guid userId)
+        private static UserListItemDTO BuildUserListItemDTO(User user) => new()
         {
-            _logger.LogInformation("({Date}) Осуществляется вывод друзей для {Id}", DateTime.Now, userId);
+            UserId = user.Id.ToString(),
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            IsOnline = true
+        };
+
+        public async Task<IEnumerable<UserListItemDTO>> GetUserFriends(Guid userId, int page, int pageSize)
+        {
+            _logger.LogInformation(
+                "({Date}) Запрос друзей пользователя {Id} (страница {Page}, размер {PageSize})", 
+                DateTime.UtcNow, userId, page, pageSize
+                );
+
+            var skip = (page - 1) * pageSize;
+
+            var friendIds = await _dbContext.Friendships
+                .Where(f => f.Status == FriendshipStatus.Accepted && (f.UserId1 == userId || f.UserId2 == userId))
+                .Select(f => f.UserId1 == userId ? f.UserId2 : f.UserId1)
+                .Skip(skip)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var friends = await _dbContext.Users
+                .Where(u => friendIds.Contains(u.Id) && !u.IsDeleted)
+                .Select(u => BuildUserListItemDTO(u))
+                .ToListAsync();
+
+            _logger.LogInformation("({Date}) Получено {Count} друзей", DateTime.UtcNow, friendIds.Count);
+            return friends;
+        }
+
+        public async Task<(IEnumerable<UserListItemDTO> Friends, int FriendsCount)> GetRandomUserFriends(Guid userId, int count)
+        {
+            _logger.LogInformation("({Date}) Запрос друзей пользователя {Id} для профиля", DateTime.UtcNow, userId);
 
             var friendIds = await _dbContext.Friendships
                 .Where(f => f.Status == FriendshipStatus.Accepted && (f.UserId1 == userId || f.UserId2 == userId))
                 .Select(f => f.UserId1 == userId ? f.UserId2 : f.UserId1)
                 .ToListAsync();
 
-            var friends = await _dbContext.Users
+            IEnumerable<UserListItemDTO> friends = [];
+            if (friendIds.Count < 6)
+            {
+                friends = await _dbContext.Users
+                    .Where(u => friendIds.Contains(u.Id) && !u.IsDeleted)
+                    .Select(u => BuildUserListItemDTO(u))
+                    .ToListAsync();
+
+                _logger.LogInformation("({Date}) Получено {Count} друзей", DateTime.UtcNow, friendIds.Count);
+                return (friends, friendIds.Count);
+            }
+
+            var random = new Random();
+            var randomFriendIds = friendIds
+                .OrderBy(x => random.Next())
+                .Take(count)
+                .ToList();
+
+            friends = await _dbContext.Users
                 .Where(u => friendIds.Contains(u.Id) && !u.IsDeleted)
-                .Select(u => new UserDTO
-                {
-                    Id = u.Id.ToString(),
-                    Email = u.Email,
-                    FirstName = u.FirstName,
-                    LastName = u.LastName
-                })
+                .Select(u => BuildUserListItemDTO(u))
                 .ToListAsync();
 
-            _logger.LogInformation("({Date}) Всего друзей {Count}", DateTime.Now, friends.Count);
-            return friends;
-            //return friends.Skip(skip).Take(take).ToList();
+            _logger.LogInformation("({Date}) Получено {Count} друзей", DateTime.UtcNow, randomFriendIds.Count);
+            return (friends, friendIds.Count);
         }
     }
 }

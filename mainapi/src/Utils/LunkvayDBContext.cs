@@ -6,6 +6,8 @@ namespace LunkvayAPI.src.Utils
     public class LunkvayDBContext(DbContextOptions<LunkvayDBContext> options) : DbContext(options)
     {
         public DbSet<User> Users { get; set; } = null!;
+        public DbSet<Avatar> Avatars { get; set; } = null!;
+        public DbSet<UserProfile> Profiles { get; set; } = null!;
         public DbSet<Friendship> Friendships { get; set; } = null!;
         public DbSet<FriendshipLabel> FriendshipLabels { get; set; } = null!;
 
@@ -16,6 +18,21 @@ namespace LunkvayAPI.src.Utils
                 entity.Property(u => u.Id).HasDefaultValueSql("gen_random_uuid()");
                 entity.Property(u => u.CreatedAt).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
                 entity.HasIndex(u => u.IsDeleted);
+            });
+
+            modelBuilder.Entity<Avatar>(entity =>
+            {
+                entity.Property(a => a.Id).HasDefaultValueSql("gen_random_uuid()");
+                entity.Property(u => u.UpdatedAt).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
+
+                entity.HasOne(a => a.User).WithOne().OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<UserProfile>(entity =>
+            {
+                entity.Property(up => up.Id).HasDefaultValueSql("gen_random_uuid()");
+
+                entity.HasOne(up => up.User).WithOne().OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Friendship>(entity =>

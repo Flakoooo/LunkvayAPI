@@ -1,6 +1,4 @@
-﻿using LunkvayAPI.src.Models.Entities;
-using LunkvayAPI.src.Models.Requests;
-using LunkvayAPI.src.Services;
+﻿using LunkvayAPI.src.Models.Requests;
 using LunkvayAPI.src.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,10 +6,9 @@ namespace LunkvayAPI.src.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
-    public class AuthController(IAuthService authService, IUserService userService) : Controller
+    public class AuthController(IAuthService authService) : Controller
     {
         private readonly IAuthService _authService = authService;
-        private readonly IUserService _userService = userService;
         
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
@@ -30,24 +27,6 @@ namespace LunkvayAPI.src.Controllers
             {
                 var user = await _authService.Register(request);
                 return Ok(user);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
-        [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetUserById(string userId)
-        {
-            try
-            {
-                var user = await _userService.GetUserById(Guid.Parse(userId));
-                return Ok(user);
-            }
-            catch (FormatException)
-            {
-                return BadRequest("Неверный формат GUID");
             }
             catch (Exception ex)
             {

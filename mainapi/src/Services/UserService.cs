@@ -1,5 +1,5 @@
-﻿using LunkvayAPI.src.Models.Entities;
-using LunkvayAPI.src.Models.Requests;
+﻿using LunkvayAPI.src.Models.DTO;
+using LunkvayAPI.src.Models.Entities;
 using LunkvayAPI.src.Services.Interfaces;
 using LunkvayAPI.src.Utils;
 using Microsoft.EntityFrameworkCore;
@@ -10,39 +10,39 @@ namespace LunkvayAPI.src.Services
     {
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
 
-        public async Task<User?> Authenticate(string email, string password)
+        private static UserDTO BuildUserDTO(User user) => new()
         {
-            var user = await _dbContext.Users.Where(u => u.Email == email).FirstOrDefaultAsync();
-            if (user == null)
-                return null;
+            Id = user.Id.ToString(),
+            UserName = user.UserName,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName
+        };
 
-            if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
-                return null;
+        public async Task<UserDTO> GetUserById(Guid userId) 
+            => await _dbContext.Users
+            .Where(u => u.Id == userId)
+            .Select(u => BuildUserDTO(u))
+            .FirstOrDefaultAsync()
+            ?? throw new Exception("Пользователь не найден");
 
-            return user;
-        }
+        public async Task<IEnumerable<UserDTO>> GetUsers() 
+            => await _dbContext.Users.Select(u => BuildUserDTO(u)).ToListAsync();
 
-        public async Task<User?> Register(RegisterRequest registerRequest)
+        public async Task<User?> GetUserByEmail(string email)
+            => await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email);
+
+        public async Task<User> CreateUser(User user)
         {
-            if (await _dbContext.Users.AnyAsync(u => u.Email == registerRequest.Email))
+            if (await _dbContext.Users.AnyAsync(u => u.Email == user.Email))
                 throw new ArgumentException("Пользователь с данной почтой уже существует");
 
-            var user = new User {  
-                Email = registerRequest.Email, 
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerRequest.Password), 
-                FirstName = registerRequest.FirstName ?? "", 
-                LastName = registerRequest.LastName ?? "" 
-            };
+            if (await _dbContext.Users.AnyAsync(u => u.UserName == user.UserName))
+                throw new ArgumentException("Пользователь с данным именем пользователя уже существует");
+
             var result = await _dbContext.Users.AddAsync(user);
             await _dbContext.SaveChangesAsync();
             return result.Entity;
-        }
-
-        public async Task<User> GetUserById(Guid userId)
-        {
-            //var user = _users.Find(u => u.Id == userId);
-            var user = await _dbContext.Users.Where(u => u.Id == userId).FirstOrDefaultAsync();
-            return user ?? throw new Exception("Пользователь не найден");
         }
     }
 }

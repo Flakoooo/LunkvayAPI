@@ -7,6 +7,6 @@ namespace LunkvayAPI.src.Services.Interfaces
     {
         Task<string> Login(LoginRequest loginRequest);
         //Task<string> Logout();
-        Task<User?> Register(RegisterRequest registerRequest);
+        Task<User> Register(RegisterRequest registerRequest);
     }
 }

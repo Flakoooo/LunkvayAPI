@@ -1,12 +1,13 @@
-﻿using LunkvayAPI.src.Models.Entities;
-using LunkvayAPI.src.Models.Requests;
+﻿using LunkvayAPI.src.Models.DTO;
+using LunkvayAPI.src.Models.Entities;
 
 namespace LunkvayAPI.src.Services.Interfaces
 {
     public interface IUserService
     {
-        public Task<User?> Authenticate(string email, string password);
-        public Task<User?> Register(RegisterRequest registerRequest);
-        public Task<User> GetUserById(Guid userId);
+        public Task<UserDTO> GetUserById(Guid userId);
+        public Task<User?> GetUserByEmail(string email);
+        public Task<IEnumerable<UserDTO>> GetUsers();
+        public Task<User> CreateUser(User user);
     }
 }
