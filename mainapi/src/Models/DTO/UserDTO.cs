@@ -10,7 +10,7 @@
         public DateTime CreatedAt { get; set; }
         public bool IsDeleted { get; set; }
         public DateTime? DeletedAt { get; set; }
-        public DateTime? LastLogin { get; set; }
+        public DateTime LastLogin { get; set; }
         public bool IsOnline { get; set; }
     }
 }

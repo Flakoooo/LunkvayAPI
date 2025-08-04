@@ -1,50 +1,75 @@
-﻿using LunkvayAPI.src.Services.Interfaces;
+﻿using LunkvayAPI.src.Models.Entities;
+using LunkvayAPI.src.Models.Utils;
+using LunkvayAPI.src.Services.Interfaces;
 using LunkvayAPI.src.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace LunkvayAPI.src.Services
 {
-    public class AvatarService(ILogger<AvatarService> logger, LunkvayDBContext lunkvayDBContext, IConfiguration configuration) : IAvatarService
+    public class AvatarService : IAvatarService
     {
-        private readonly ILogger<AvatarService> _logger = logger;
-        private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
-        private readonly string? _avatarsPath = configuration["AvatarSettings:StoragePath"];
+        private readonly ILogger<AvatarService> _logger;
+        private readonly LunkvayDBContext _dbContext;
+        private readonly string? _avatarsPath;
 
-        public async Task<byte[]> GetUserAvatarById(Guid userId)
+        private readonly string _defaultUserImageName = "default.jpg";
+
+        public AvatarService(ILogger<AvatarService> logger, LunkvayDBContext lunkvayDBContext, IConfiguration configuration)
         {
-            _logger.LogInformation("Получение изображения пользователя для {UserId}", userId.ToString());
-            var avatar = await _dbContext.Avatars.Where(a => a.UserId == userId).FirstOrDefaultAsync();
-            if (avatar == null)
-            {
-                _logger.LogInformation("[ОШИБКА] Изображение для {UserId} не найдено", userId.ToString());
-                throw new Exception("Изображение пользователя не найдено");
-            }
+            _logger = logger;
+            _dbContext = lunkvayDBContext;
 
+            string basePath = configuration["FileStorage:BasePath"] ??
+                throw new FileNotFoundException("Путь к изображениям пользователя не указан или отсуствует файл конфигурации");
+            string avatars = configuration["FileStorage:Avatars"] ??
+                throw new FileNotFoundException("Путь к изображениям пользователя не указан или отсуствует файл конфигурации");
+            _avatarsPath = Path.Combine(basePath, avatars);
+
+            if (string.IsNullOrEmpty(_defaultUserImageName)) throw new ArgumentNullException(nameof(_defaultUserImageName));
+
+            _ = Directory.CreateDirectory(_avatarsPath);
+        }
+
+        public async Task<ServiceResult<byte[]>> GetUserAvatarById(Guid userId)
+        {
             if (_avatarsPath == null)
             {
-                _logger.LogInformation("[ОШИБКА] Путь до папки с изображениями пользователя не указан");
-                throw new Exception("Серверная ошибка при получении изображения пользователя");
+                _logger.LogCritical("Путь к аватарам не задан!");
+                return ServiceResult<byte[]>.Failure("Ошибка сервера", 500);
             }
-                
 
-            var filePath = Path.Combine(_avatarsPath, avatar.FileName);
-            _logger.LogInformation("Полный путь: {Path}", Path.GetFullPath(filePath));
+            _logger.LogDebug("Поиск аватара для {UserId}", userId);
+            Avatar? avatar = await _dbContext.Avatars.Where(a => a.UserId == userId).FirstOrDefaultAsync();
+
+            string filePath = avatar == null 
+                ? Path.Combine(_avatarsPath, _defaultUserImageName) 
+                : Path.Combine(_avatarsPath, avatar.FileName);
+
             if (!File.Exists(filePath))
             {
-                _logger.LogInformation("[ОШИБКА] Файл изображения для {UserId} не найден", userId.ToString());
-                throw new Exception("Файл изображения пользователя не найден");
+                _logger.LogWarning("Файл не найден: {FilePath}", filePath);
+
+                if (avatar != null)
+                {
+                    string defaultFilePath = Path.Combine(_avatarsPath, _defaultUserImageName);
+                    if (!File.Exists(defaultFilePath))
+                    {
+                        _logger.LogCritical("Дефолтный аватар {DefaultImage} отсутствует!", _defaultUserImageName);
+                        return ServiceResult<byte[]>.Failure("Ошибка сервера", 500);
+                    }
+                    filePath = defaultFilePath;
+                }
+                else return ServiceResult<byte[]>.Failure("Аватар не найден", 404);
             }
 
-            var fileBytes = await File.ReadAllBytesAsync(filePath);
-            if (fileBytes == null || fileBytes.Length == 0)
+            byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
+            if (fileBytes.Length == 0)
             {
-                _logger.LogInformation("[ОШИБКА] Файл изображения для {UserId} пуст", userId.ToString());
-                throw new Exception("Файл изображения пользователя пуст");
+                _logger.LogCritical("Аватар имеет пустое значение");
+                return ServiceResult<byte[]>.Failure("Аватар не найден", 404);
             }
-
-            _logger.LogInformation("Изображение для {UserId} было получено", userId.ToString());
-            return fileBytes;
+            return ServiceResult<byte[]>.Success(fileBytes);
         }
     }
 }

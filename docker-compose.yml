@@ -6,6 +6,10 @@ services:
       dockerfile: mainapi/Dockerfile
     ports:
       - "8080:8080"
+    volumes:
+      - ./Media:/app/Media
+    environment:
+      - MEDIA_ROOT=/app/Media
   postgres:
     image: postgres:latest
     environment:

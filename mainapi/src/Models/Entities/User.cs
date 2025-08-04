@@ -38,7 +38,7 @@ namespace LunkvayAPI.src.Models.Entities
         public DateTime? DeletedAt { get; set; }
 
         [Column("last_login")]
-        public DateTime? LastLogin { get; set; }
+        public DateTime LastLogin { get; set; }
 
         [Column("is_active")]
         public bool IsActive { get; set; }

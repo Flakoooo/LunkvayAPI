@@ -28,7 +28,7 @@
 
   <ItemGroup>
     <Folder Include="Data\" />
-    <Folder Include="Avatars\" />
+    <Folder Include="Data\Migrations\" />
   </ItemGroup>
 
 </Project>

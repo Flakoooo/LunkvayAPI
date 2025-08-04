@@ -17,6 +17,7 @@ namespace LunkvayAPI.src.Utils
             {
                 entity.Property(u => u.Id).HasDefaultValueSql("gen_random_uuid()");
                 entity.Property(u => u.CreatedAt).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
+                entity.Property(u => u.LastLogin).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
                 entity.HasIndex(u => u.IsDeleted);
             });
 

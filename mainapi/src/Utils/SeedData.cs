@@ -5,16 +5,38 @@ namespace LunkvayAPI.src.Utils
 {
     public static class SeedData
     {
+        private static User CreateUser(
+            string email, 
+            string userName, 
+            string password, 
+            string firstName, 
+            string lastName, 
+            bool isDeleted = false, 
+            bool isActive = true
+        ) => new() 
+        {
+            Email = email,
+            UserName = userName,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            FirstName = firstName,
+            LastName = lastName,
+            //CreatedAt в базе данных по UTC
+            IsDeleted = isDeleted,
+            //DeletedAt nullable
+            //LastLogin в базе данных по UTC
+            IsActive = isActive
+        };
+
         public static void Initialize(LunkvayDBContext context)
         {
             if (!context.Users.Any())
             {
                 context.Users.AddRange(
-                    new User { Email = "ryan.gosling@gmail.com", UserName = "ryangosling", PasswordHash = HashPassword("realhero"), FirstName = "Райан", LastName = "Гослинг" },
-                    new User { Email = "rinat.goslinov@gmail.com", UserName = "rinatgoslinov", PasswordHash = HashPassword("realhero"), FirstName = "Ринат", LastName = "Гослинов" },
-                    new User { Email = "christian.bale@gmail.com", UserName = "christianbale", PasswordHash = HashPassword("fordvsferrari"), FirstName = "Кристиан", LastName = "Бейл" },
-                    new User { Email = "tom.hardy@gmail.com", UserName = "tomhardy", PasswordHash = HashPassword("madmax"), FirstName = "Том", LastName = "Харди" },
-                    new User { Email = "jake.gyllenhaal@gmail.com", UserName = "jakegyllenhaal", PasswordHash = HashPassword("realhero"), FirstName = "Джейк", LastName = "Джилленхол" }
+                    CreateUser("ryan.gosling@gmail.com", "ryangosling", "realhero", "Райан", "Гослинг"),
+                    CreateUser("rinat.goslinov@gmail.com", "rinatgoslinov", "rialhero", "Ринат", "Гослинов"),
+                    CreateUser("christian.bale@gmail.com", "christianbale", "fordvsferrari", "Кристиан", "Бейл"),
+                    CreateUser("tom.hardy@gmail.com", "tomhardy", "madmax", "Том", "Харди"),
+                    CreateUser("jake.gyllenhaal@gmail.com", "jakegyllenhaal", "mystereo", "Джейк", "Джилленхол")
                 );
                 context.SaveChanges();
             }
@@ -39,8 +61,15 @@ namespace LunkvayAPI.src.Utils
 
             if (!context.Avatars.Any() && context.Users.Any())
             {
-                var user = context.Users.Where(u => u.Email == "ryan.gosling@gmail.com").First();
-                context.Avatars.Add(new Avatar { UserId = user.Id, FileName = "profile.jpeg" });
+                var users = context.Users;
+                var userRyan = users.Where(u => u.Email == "ryan.gosling@gmail.com").First();
+                var userRinat = users.Where(u => u.Email == "rinat.goslinov@gmail.com").First();
+                var userChristian = users.Where(u => u.Email == "christian.bale@gmail.com").First();
+                context.Avatars.AddRange(
+                    new Avatar { UserId = userRyan.Id, FileName = $"{userRyan.UserName}.jpeg" },
+                    new Avatar { UserId = userRinat.Id, FileName = $"{userRinat.UserName}.jpg" },
+                    new Avatar { UserId = userChristian.Id, FileName = $"{userChristian.UserName}.jpg" }
+                );
                 context.SaveChanges();
             }
 
@@ -53,7 +82,5 @@ namespace LunkvayAPI.src.Utils
                 context.SaveChanges();
             }
         }
-
-        private static string HashPassword(string password) => BCrypt.Net.BCrypt.HashPassword(password);
     }
 }

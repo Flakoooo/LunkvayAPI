@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LunkvayAPI.Data.Migrations
 {
     [DbContext(typeof(LunkvayDBContext))]
-    [Migration("20250618151843_AddFriendshipSystem")]
-    partial class AddFriendshipSystem
+    [Migration("20250802192810_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,37 @@ namespace LunkvayAPI.Data.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("LunkvayAPI.src.Models.Entities.Avatar", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("file_name");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("TIMEZONE('UTC', NOW())");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("avatars");
+                });
 
             modelBuilder.Entity("LunkvayAPI.src.Models.Entities.Friendship", b =>
                 {
@@ -132,9 +163,19 @@ namespace LunkvayAPI.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("first_name");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
+
+                    b.Property<DateTime>("LastLogin")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_login")
+                        .HasDefaultValueSql("TIMEZONE('UTC', NOW())");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -146,11 +187,55 @@ namespace LunkvayAPI.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("password_hash");
 
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("user_name");
+
                     b.HasKey("Id");
 
                     b.HasIndex("IsDeleted");
 
                     b.ToTable("users");
+                });
+
+            modelBuilder.Entity("LunkvayAPI.src.Models.Entities.UserProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("About")
+                        .HasColumnType("text")
+                        .HasColumnName("about");
+
+                    b.Property<string>("Status")
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("profiles");
+                });
+
+            modelBuilder.Entity("LunkvayAPI.src.Models.Entities.Avatar", b =>
+                {
+                    b.HasOne("LunkvayAPI.src.Models.Entities.User", "User")
+                        .WithOne()
+                        .HasForeignKey("LunkvayAPI.src.Models.Entities.Avatar", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("LunkvayAPI.src.Models.Entities.Friendship", b =>
@@ -197,6 +282,17 @@ namespace LunkvayAPI.Data.Migrations
                     b.Navigation("Creator");
 
                     b.Navigation("Friendship");
+                });
+
+            modelBuilder.Entity("LunkvayAPI.src.Models.Entities.UserProfile", b =>
+                {
+                    b.HasOne("LunkvayAPI.src.Models.Entities.User", "User")
+                        .WithOne()
+                        .HasForeignKey("LunkvayAPI.src.Models.Entities.UserProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("LunkvayAPI.src.Models.Entities.Friendship", b =>

@@ -59,7 +59,7 @@ namespace LunkvayAPI.src.Services
                 .ToListAsync();
 
             IEnumerable<UserListItemDTO> friends = [];
-            if (friendIds.Count < 6)
+            if (friendIds.Count <= count)
             {
                 friends = await _dbContext.Users
                     .Where(u => friendIds.Contains(u.Id) && !u.IsDeleted)
