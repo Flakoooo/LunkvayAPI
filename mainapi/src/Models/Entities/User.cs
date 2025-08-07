@@ -42,5 +42,27 @@ namespace LunkvayAPI.src.Models.Entities
 
         [Column("is_active")]
         public bool IsActive { get; set; }
+
+        public static User Create(
+            string userName, string email, string password,
+            string firstName = "", string lastName = "",
+            bool isDeleted = false, bool isActive = true
+        )
+        {
+            return new()
+            {
+                //Id в базе данных
+                UserName = userName,
+                Email = email,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                FirstName = firstName,
+                LastName = lastName,
+                //CreatedAt в базе данных по UTC
+                IsDeleted = isDeleted,
+                //DeletedAt nullable
+                //LastLogin в базе данных по UTC
+                IsActive = isActive
+            };
+        }
     }
 }

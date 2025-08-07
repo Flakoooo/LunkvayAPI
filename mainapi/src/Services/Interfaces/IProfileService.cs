@@ -1,10 +1,10 @@
 ﻿using LunkvayAPI.src.Models.DTO;
-using LunkvayAPI.src.Utils;
+using LunkvayAPI.src.Models.Utils;
 
 namespace LunkvayAPI.src.Services.Interfaces
 {
     public interface IProfileService
     {
-        public Task<UserProfileDTO> GetUserProfileById(Guid userId);
+        Task<ServiceResult<UserProfileDTO>> GetUserProfileById(Guid userId);
     }
 }

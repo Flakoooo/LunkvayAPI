@@ -1,26 +1,30 @@
-﻿using LunkvayAPI.src.Services.Interfaces;
+﻿using LunkvayAPI.src.Models.DTO;
+using LunkvayAPI.src.Models.Utils;
+using LunkvayAPI.src.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LunkvayAPI.src.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
-    public class ProfileController(IProfileService profileService) : Controller
+    public class ProfileController(IProfileService profileService, ILogger<ProfileController> logger) : Controller
     {
         private readonly IProfileService _profileService = profileService;
+        private readonly ILogger<ProfileController> _logger = logger;
 
         [HttpGet("{userId}")]
-        public async Task<IActionResult> GetUserProfileByUserId(string userId)
+        public async Task<IActionResult> GetUserProfileByUserId(Guid userId)
         {
-            try
+            _logger.LogInformation("Запрос профиля пользователя {UserId}", userId);
+            ServiceResult<UserProfileDTO> result = await _profileService.GetUserProfileById(userId);
+            if (result.IsSuccess)
             {
-                var result = await _profileService.GetUserProfileById(Guid.Parse(userId));
-                return Ok(result);
+                _logger.LogDebug("Успешное получение профиля для пользователя {UserId}", userId);
+                return Ok(result.Result);
             }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+
+            _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
+            return BadRequest(result.Error);
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using LunkvayAPI.src.Models.Entities;
+using LunkvayAPI.src.Models.Entities.FriendsAPI;
 using Microsoft.EntityFrameworkCore;
 
 namespace LunkvayAPI.src.Utils
@@ -13,49 +14,49 @@ namespace LunkvayAPI.src.Utils
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<User>(entity =>
+            _ = modelBuilder.Entity<User>(static entity =>
             {
-                entity.Property(u => u.Id).HasDefaultValueSql("gen_random_uuid()");
-                entity.Property(u => u.CreatedAt).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
-                entity.Property(u => u.LastLogin).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
-                entity.HasIndex(u => u.IsDeleted);
+                _ = entity.Property(static u => u.Id).HasDefaultValueSql("gen_random_uuid()");
+                _ = entity.Property(static u => u.CreatedAt).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
+                _ = entity.Property(static u => u.LastLogin).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
+                _ = entity.HasIndex(static u => u.IsDeleted);
             });
 
-            modelBuilder.Entity<Avatar>(entity =>
+            _ = modelBuilder.Entity<Avatar>(static entity =>
             {
-                entity.Property(a => a.Id).HasDefaultValueSql("gen_random_uuid()");
-                entity.Property(u => u.UpdatedAt).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
+                _ = entity.Property(static a => a.Id).HasDefaultValueSql("gen_random_uuid()");
+                _ = entity.Property(static u => u.UpdatedAt).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
 
-                entity.HasOne(a => a.User).WithOne().OnDelete(DeleteBehavior.Cascade);
+                _ = entity.HasOne(static a => a.User).WithOne().OnDelete(DeleteBehavior.Cascade);
             });
 
-            modelBuilder.Entity<UserProfile>(entity =>
+            _ = modelBuilder.Entity<UserProfile>(static entity =>
             {
-                entity.Property(up => up.Id).HasDefaultValueSql("gen_random_uuid()");
+                _ = entity.Property(static up => up.Id).HasDefaultValueSql("gen_random_uuid()");
 
-                entity.HasOne(up => up.User).WithOne().OnDelete(DeleteBehavior.Cascade);
+                _ = entity.HasOne(static up => up.User).WithOne().OnDelete(DeleteBehavior.Cascade);
             });
 
-            modelBuilder.Entity<Friendship>(entity =>
+            _ = modelBuilder.Entity<Friendship>(static entity =>
             {
-                entity.Property(f => f.Id).HasDefaultValueSql("gen_random_uuid()");
-                entity.HasIndex(f => new { f.UserId1, f.UserId2 }).IsUnique();
-                entity.HasIndex(f => f.Status);
-                entity.Property(f => f.CreatedAt).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
-                entity.Property(f => f.UpdatedAt).ValueGeneratedOnUpdate().HasDefaultValueSql("TIMEZONE('UTC', NOW())");
+                _ = entity.Property(static f => f.Id).HasDefaultValueSql("gen_random_uuid()");
+                _ = entity.HasIndex(static f => new { f.UserId1, f.UserId2 }).IsUnique();
+                _ = entity.HasIndex(static f => f.Status);
+                _ = entity.Property(static f => f.CreatedAt).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
+                _ = entity.Property(static f => f.UpdatedAt).ValueGeneratedOnUpdate().HasDefaultValueSql("TIMEZONE('UTC', NOW())");
 
-                entity.HasOne(f => f.User1).WithMany().HasForeignKey(f => f.UserId1).OnDelete(DeleteBehavior.Cascade);
-                entity.HasOne(f => f.User2).WithMany().HasForeignKey(f => f.UserId2).OnDelete(DeleteBehavior.Cascade);
-                entity.HasOne(f => f.Initiator).WithMany().HasForeignKey(f => f.InitiatorId);
+                _ = entity.HasOne(static f => f.User1).WithMany().HasForeignKey(static f => f.UserId1).OnDelete(DeleteBehavior.Cascade);
+                _ = entity.HasOne(static f => f.User2).WithMany().HasForeignKey(static f => f.UserId2).OnDelete(DeleteBehavior.Cascade);
+                _ = entity.HasOne(static f => f.Initiator).WithMany().HasForeignKey(static f => f.InitiatorId);
             });
 
-            modelBuilder.Entity<FriendshipLabel>(entity =>
+            _ = modelBuilder.Entity<FriendshipLabel>(static entity =>
             {
-                entity.Property(fl => fl.Id).HasDefaultValueSql("gen_random_uuid()");
-                entity.HasOne(fl => fl.Friendship).WithMany(f => f.Labels).HasForeignKey(fl => fl.FriendshipId);
-                entity.HasIndex(fl => fl.FriendshipId);
-                entity.HasOne(fl => fl.Creator).WithMany().HasForeignKey(fl => fl.CreatorId).OnDelete(DeleteBehavior.Cascade);
-                entity.HasIndex(fl => fl.CreatorId);
+                _ = entity.Property(static fl => fl.Id).HasDefaultValueSql("gen_random_uuid()");
+                _ = entity.HasOne(static fl => fl.Friendship).WithMany(static f => f.Labels).HasForeignKey(static fl => fl.FriendshipId);
+                _ = entity.HasIndex(static fl => fl.FriendshipId);
+                _ = entity.HasOne(static fl => fl.Creator).WithMany().HasForeignKey(static fl => fl.CreatorId).OnDelete(DeleteBehavior.Cascade);
+                _ = entity.HasIndex(static fl => fl.CreatorId);
             });
         }
     }

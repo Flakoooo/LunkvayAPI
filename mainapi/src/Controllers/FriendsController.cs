@@ -1,4 +1,6 @@
-﻿using LunkvayAPI.src.Services.Interfaces;
+﻿using LunkvayAPI.src.Models.DTO;
+using LunkvayAPI.src.Models.Utils;
+using LunkvayAPI.src.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LunkvayAPI.src.Controllers
@@ -11,24 +13,44 @@ namespace LunkvayAPI.src.Controllers
         private readonly ILogger<FriendsController> _logger = logger;
 
         [HttpGet("{userId}")]
-        public async Task<IActionResult> GetUserFriends(string userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetUserFriends(Guid userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             // /api/v1/friends/{userId}
             // /api/v1/friends/{userId}?page=1
             // /api/v1/friends/{userId}?page=1?pageSize=10
             _logger.LogInformation("Запрос друзей пользователя {Id}, страница {Page}", userId, page);
-            var result = await _friendsService.GetUserFriends(Guid.Parse(userId), page, pageSize);
-            return Ok(result);
+
+            ServiceResult<IEnumerable<UserListItemDTO>> result
+                = await _friendsService.GetUserFriends(userId, page, pageSize);
+
+            if (result.IsSuccess)
+            {
+                _logger.LogDebug("Запрос друзей пользователя {Id}, страница {Page}", userId, page);
+                return Ok(result.Result);
+            }
+
+            _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
+            return StatusCode((int)result.StatusCode, result.Error);
         }
 
         [HttpGet("{userId}/random")]
-        public async Task<IActionResult> GetRandomFriends(string userId, [FromQuery] int count = 6)
+        public async Task<IActionResult> GetRandomFriends(Guid userId, [FromQuery] int count = 6)
         {
             // /api/v1/friends/{userId}/random
             // /api/v1/friends/{userId}/random?count=4
             _logger.LogInformation("Запрос друзей пользователя {Id} для профиля", userId);
-            var (result, _) = await _friendsService.GetRandomUserFriends(Guid.Parse(userId), count);
-            return Ok(result);
+
+            ServiceResult<(IEnumerable<UserListItemDTO> Friends, int FriendsCount)> result
+                = await _friendsService.GetRandomUserFriends(userId, count);
+
+            if (result.IsSuccess)
+            {
+                _logger.LogDebug("Запрос случайных друзей пользователя {Id}", userId);
+                return Ok(result.Result);
+            }
+
+            _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
+            return StatusCode((int)result.StatusCode, result.Error);
         }
     }
 }

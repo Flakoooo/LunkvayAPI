@@ -1,37 +1,55 @@
-﻿using LunkvayAPI.src.Models.Requests;
+﻿using LunkvayAPI.src.Models.Entities;
+using LunkvayAPI.src.Models.Utils;
 using LunkvayAPI.src.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using LoginRequest = LunkvayAPI.src.Models.Requests.LoginRequest;
+using RegisterRequest = LunkvayAPI.src.Models.Requests.RegisterRequest;
 
 namespace LunkvayAPI.src.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
-    public class AuthController(IAuthService authService) : Controller
+    public class AuthController(IAuthService authService, ILogger<AuthController> logger) : Controller
     {
         private readonly IAuthService _authService = authService;
-        
+        private readonly ILogger<AuthController> _logger = logger;
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
         {
-            var token = await _authService.Login(loginRequest);
-            return Ok(token);
+            _logger.LogInformation("Вход пользователя {Email}", loginRequest.Email);
+            ServiceResult<string> result = await _authService.Login(loginRequest);
+
+            if (result.IsSuccess)
+            {
+                _logger.LogDebug("Успешный вход {Email}", loginRequest.Email);
+                return Ok(result.Result);
+            }
+
+            _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
+            return StatusCode((int)result.StatusCode, result.Error);
         }
 
         [HttpPost("logout")]
-        public IActionResult Logout() => Ok();
+        public IActionResult Logout()
+        {
+            return Ok();
+        }
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            try
+            _logger.LogInformation("Регистрация пользователя {Login}", request.UserName);
+            ServiceResult<User> result = await _authService.Register(request);
+
+            if (result.IsSuccess && result.Result is not null)
             {
-                var user = await _authService.Register(request);
-                return Ok(user);
+                _logger.LogDebug("Успешная регистрация пользователя {Login}", result.Result.UserName);
+                return Ok(result.Result);
             }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+
+            _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
+            return StatusCode((int)result.StatusCode, result.Error);
         }
     }
 }

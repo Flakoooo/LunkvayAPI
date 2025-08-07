@@ -1,16 +1,22 @@
-﻿namespace LunkvayAPI.src.Models.Utils
+﻿using System.Net;
+
+namespace LunkvayAPI.src.Models.Utils
 {
-    public record class ServiceResult<T>(bool IsSuccess, T? Result, string? Error, int StatusCode = 400)
+    public record class ServiceResult<T>(bool IsSuccess, T? Result, string? Error, HttpStatusCode StatusCode = HttpStatusCode.BadRequest)
     {
         public bool IsSuccess { get; } = IsSuccess;
         public T? Result { get; } = Result;
         public string? Error { get; } = Error;
-        public int StatusCode { get; } = StatusCode;
+        public HttpStatusCode StatusCode { get; } = StatusCode;
 
-        public static ServiceResult<T> Success(T result) 
-            => new(true, result, null, 200);
+        public static ServiceResult<T> Success(T result)
+        {
+            return new(true, result, null, HttpStatusCode.OK);
+        }
 
-        public static ServiceResult<T> Failure(string error, int statusCode = 400) 
-            => new(false, default, error, statusCode);
+        public static ServiceResult<T> Failure(string error, HttpStatusCode statusCode = HttpStatusCode.BadRequest)
+        {
+            return new(false, default, error, statusCode);
+        }
     }
 }

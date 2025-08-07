@@ -1,4 +1,6 @@
 ﻿using LunkvayAPI.src.Models.DTO;
+using LunkvayAPI.src.Models.Entities;
+using LunkvayAPI.src.Models.Utils;
 using LunkvayAPI.src.Services.Interfaces;
 using LunkvayAPI.src.Utils;
 using Microsoft.EntityFrameworkCore;
@@ -15,27 +17,29 @@ namespace LunkvayAPI.src.Services
         private readonly IUserService _userService = userService;
         private readonly IFriendsService _friendsService = friendsService;
 
-        public async Task<UserProfileDTO> GetUserProfileById(Guid userId)
+        public async Task<ServiceResult<UserProfileDTO>> GetUserProfileById(Guid userId)
         {
-            var profile = await _dBContext.Profiles.Where(up => up.UserId == userId).FirstOrDefaultAsync() 
-                ?? throw new Exception("Профиль не найден");
-
-            var user = await _userService.GetUserById(userId)
-                ?? throw new Exception("Найден профиль без пользователя");
-
-            var (randomFriends, friendsCount) = await _friendsService.GetRandomUserFriends(userId);
-
-            var profileDTO = new UserProfileDTO
+            UserProfile? profile = await _dBContext.Profiles.Where(up => up.UserId == userId).FirstOrDefaultAsync();
+            if (profile is null)
             {
-                Id = profile.Id.ToString(),
-                User = user,
-                Status = profile.Status,
-                About = profile.About,
-                FriendsCount = friendsCount,
-                Friends = randomFriends
-            };
+                return ServiceResult<UserProfileDTO>.Failure("Профиль не найден");
+            }
 
-            return profileDTO;
+            ServiceResult<UserDTO> user = await _userService.GetUserById(userId);
+            if (!user.IsSuccess || user.Result is null)
+            {
+                return ServiceResult<UserProfileDTO>.Failure("Найден профиль без пользователя");
+            }
+
+            ServiceResult<(IEnumerable<UserListItemDTO> Friends, int FriendsCount)> result 
+                = await _friendsService.GetRandomUserFriends(userId);
+
+            UserProfileDTO profileDTO = profileDTO = UserProfileDTO.Create(
+                profile.Id.ToString(), user.Result, profile.Status, profile.About,
+                result.Result.FriendsCount, result.Result.Friends
+            );
+
+            return ServiceResult<UserProfileDTO>.Success(profileDTO);
         }
     }
 }

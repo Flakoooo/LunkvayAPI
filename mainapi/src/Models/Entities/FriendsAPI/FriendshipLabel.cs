@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace LunkvayAPI.src.Models.Entities
+namespace LunkvayAPI.src.Models.Entities.FriendsAPI
 {
     [Table("friendship_labels")]
     public class FriendshipLabel
@@ -27,5 +27,18 @@ namespace LunkvayAPI.src.Models.Entities
 
         [ForeignKey("CreatorId")]
         public virtual User? Creator { get; set; }
+
+
+
+        public static FriendshipLabel Create(Guid friendshipId, Guid creatorId, string? label)
+        {
+            return new()
+            {
+                //Id
+                FriendshipId = friendshipId,
+                CreatorId = creatorId,
+                Label = label
+            };
+        }
     }
 }

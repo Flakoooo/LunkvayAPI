@@ -1,8 +1,11 @@
 ﻿using LunkvayAPI.src.Models.DTO;
 using LunkvayAPI.src.Models.Entities;
+using LunkvayAPI.src.Models.Utils;
 using LunkvayAPI.src.Services.Interfaces;
 using LunkvayAPI.src.Utils;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System.Net;
 
 namespace LunkvayAPI.src.Services
 {
@@ -10,39 +13,65 @@ namespace LunkvayAPI.src.Services
     {
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
 
-        private static UserDTO BuildUserDTO(User user) => new()
+        public async Task<ServiceResult<UserDTO>> GetUserById(Guid userId)
         {
-            Id = user.Id.ToString(),
-            UserName = user.UserName,
-            Email = user.Email,
-            FirstName = user.FirstName,
-            LastName = user.LastName
-        };
+            UserDTO? result = await _dbContext.Users
+                    .Where(u => u.Id == userId)
+                    .Select(u => UserDTO.Create(
+                            u.Id.ToString(), u.UserName, u.Email,
+                            u.CreatedAt, u.IsDeleted, u.LastLogin, u.IsActive,
+                            u.FirstName, u.LastName, u.DeletedAt
+                        )
+                    )
+                    .FirstOrDefaultAsync();
 
-        public async Task<UserDTO> GetUserById(Guid userId) 
-            => await _dbContext.Users
-            .Where(u => u.Id == userId)
-            .Select(u => BuildUserDTO(u))
-            .FirstOrDefaultAsync()
-            ?? throw new Exception("Пользователь не найден");
+            if (result is null)
+            {
+                return ServiceResult<UserDTO>.Failure("Пользователь не найден", HttpStatusCode.NotFound);
+            }
 
-        public async Task<IEnumerable<UserDTO>> GetUsers() 
-            => await _dbContext.Users.Select(u => BuildUserDTO(u)).ToListAsync();
+            return ServiceResult<UserDTO>.Success(result);
+        }
 
-        public async Task<User?> GetUserByEmail(string email)
-            => await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email);
+        public async Task<ServiceResult<User?>> GetUserByEmail(string email)
+        {
+            User? result = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (result is null)
+            {
+                return ServiceResult<User?>.Failure("Пользователь не найден", HttpStatusCode.NotFound);
+            }
 
-        public async Task<User> CreateUser(User user)
+            return ServiceResult<User?>.Success(result);
+        }
+
+        public async Task<ServiceResult<IEnumerable<UserDTO>>> GetUsers()
+        {
+            List<UserDTO> result = await _dbContext.Users
+                .Select(static u => UserDTO.Create(
+                        u.Id.ToString(), u.UserName, u.Email,
+                        u.CreatedAt, u.IsDeleted, u.LastLogin, u.IsActive,
+                        u.FirstName, u.LastName, u.DeletedAt
+                    )
+                )
+                .ToListAsync();
+            return ServiceResult<IEnumerable<UserDTO>>.Success(result);
+        }
+
+        public async Task<ServiceResult<User>> CreateUser(User user)
         {
             if (await _dbContext.Users.AnyAsync(u => u.Email == user.Email))
-                throw new ArgumentException("Пользователь с данной почтой уже существует");
+            {
+                return ServiceResult<User>.Failure("Пользователь с данной почтой уже существует", HttpStatusCode.Conflict);
+            }
 
             if (await _dbContext.Users.AnyAsync(u => u.UserName == user.UserName))
-                throw new ArgumentException("Пользователь с данным именем пользователя уже существует");
+            {
+                return ServiceResult<User>.Failure("Пользователь с данным именем пользователя уже существует", HttpStatusCode.Conflict);
+            }
 
-            var result = await _dbContext.Users.AddAsync(user);
-            await _dbContext.SaveChangesAsync();
-            return result.Entity;
+            EntityEntry<User> result = await _dbContext.Users.AddAsync(user);
+            _ = await _dbContext.SaveChangesAsync();
+            return ServiceResult<User>.Success(result.Entity);
         }
     }
 }

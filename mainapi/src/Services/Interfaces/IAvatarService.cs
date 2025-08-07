@@ -4,6 +4,6 @@ namespace LunkvayAPI.src.Services.Interfaces
 {
     public interface IAvatarService
     {
-        public Task<ServiceResult<byte[]>> GetUserAvatarById(Guid userId);
+        Task<ServiceResult<byte[]>> GetUserAvatarById(Guid userId);
     }
 }

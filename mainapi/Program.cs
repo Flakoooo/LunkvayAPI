@@ -1,4 +1,5 @@
 using LunkvayAPI.src;
+using LunkvayAPI.src.Controllers;
 using LunkvayAPI.src.Models.Utils;
 using LunkvayAPI.src.Utils;
 using Microsoft.EntityFrameworkCore;
@@ -11,31 +12,32 @@ namespace LunkvayAPI
         {
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-            builder.Services.AddDbContext<LunkvayDBContext>(
-                options => options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
-            );
+            _ = builder.Services.AddDbContext<LunkvayDBContext>(options =>
+            {
+                _ = options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+            });
 
-            builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+            _ = builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 
-            //сервисы создаются до содания WebApplication
             builder.Services.AddCustomServices();
 
-            //регистрация контроллеров
-            builder.Services.AddControllers();
+            _ = builder.Services.AddSignalR();
+            _ = builder.Services.AddControllers(options =>
+            {
+                _ = options.Filters.Add<GlobalExceptionFilter>();
+            });
 
             WebApplication app = builder.Build();
 
-            //Настройка маршрутов контроллеров
-            app.MapControllers();
+            _ = app.MapHub<ChatHub>("/chatHub");
+            _ = app.MapControllers();
 
-            using (var scope = app.Services.CreateScope())
+            using (IServiceScope scope = app.Services.CreateScope())
             {
-                var db = scope.ServiceProvider.GetRequiredService<LunkvayDBContext>();
+                LunkvayDBContext db = scope.ServiceProvider.GetRequiredService<LunkvayDBContext>();
 
-                // Применяем миграции
                 db.Database.Migrate();
 
-                // Инициализируем начальные данные
                 if (app.Environment.IsDevelopment())
                 {
                     SeedData.Initialize(db);

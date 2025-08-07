@@ -13,17 +13,11 @@ namespace LunkvayAPI.src.Controllers
         private readonly IAvatarService _avatarService = avatarService;
 
         [HttpGet("{userId}")]
-        public async Task<IActionResult> GetUserAvatarById(string userId)
+        public async Task<IActionResult> GetUserAvatarById(Guid userId)
         {
             _logger.LogInformation("Запрос аватара для пользователя {UserId}", userId);
 
-            if (!Guid.TryParse(userId, out var guid))
-            {
-                _logger.LogWarning("Некорректный Id пользователя: {UserId}", userId);
-                return BadRequest("Некорректный идентификатор пользователя");
-            }
-
-            ServiceResult<byte[]> result = await _avatarService.GetUserAvatarById(guid);
+            ServiceResult<byte[]> result = await _avatarService.GetUserAvatarById(userId);
 
             if (result.IsSuccess)
             {
@@ -31,8 +25,8 @@ namespace LunkvayAPI.src.Controllers
                 return File(result.Result!, MediaTypeNames.Image.Jpeg);
             }
 
-            _logger.LogError("Ошибка: {Error} (Status: {StatusCode})", result.Error, result.StatusCode);
-            return StatusCode(result.StatusCode, result.Error);
+            _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
+            return StatusCode((int)result.StatusCode, result.Error);
         }
     }
 }

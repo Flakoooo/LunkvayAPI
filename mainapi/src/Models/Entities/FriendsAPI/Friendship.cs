@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace LunkvayAPI.src.Models.Entities
+namespace LunkvayAPI.src.Models.Entities.FriendsAPI
 {
     [Table("friendships")]
     public class Friendship
@@ -44,5 +44,21 @@ namespace LunkvayAPI.src.Models.Entities
         public virtual User? Initiator { get; set; }
 
         public virtual ICollection<FriendshipLabel> Labels { get; set; } = [];
+
+
+        public static Friendship Create(
+            Guid userId1, Guid userId2, FriendshipStatus status, Guid initiatorId
+        )
+        {
+            return new()
+            { 
+                UserId1 = userId1, 
+                UserId2 = userId2, 
+                Status = status, 
+                InitiatorId = initiatorId
+                //CreatedAt в базе данных по UTC
+                //CreatedAt в базе данных по UTC
+            };
+        }
     }
 }

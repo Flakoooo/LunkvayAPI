@@ -21,5 +21,16 @@ namespace LunkvayAPI.src.Models.Entities
 
         [ForeignKey("UserId")]
         public virtual User? User { get; set; }
+
+
+        public static UserProfile Create(Guid userId, string about, string status)
+        {
+            return new() 
+            { 
+                UserId = userId,
+                About = about,
+                Status = status
+            };
+        }
     }
 }
