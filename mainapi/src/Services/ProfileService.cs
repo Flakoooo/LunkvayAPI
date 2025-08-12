@@ -21,15 +21,11 @@ namespace LunkvayAPI.src.Services
         {
             UserProfile? profile = await _dBContext.Profiles.Where(up => up.UserId == userId).FirstOrDefaultAsync();
             if (profile is null)
-            {
                 return ServiceResult<UserProfileDTO>.Failure("Профиль не найден");
-            }
 
             ServiceResult<UserDTO> user = await _userService.GetUserById(userId);
             if (!user.IsSuccess || user.Result is null)
-            {
                 return ServiceResult<UserProfileDTO>.Failure("Найден профиль без пользователя");
-            }
 
             ServiceResult<(IEnumerable<UserListItemDTO> Friends, int FriendsCount)> result 
                 = await _friendsService.GetRandomUserFriends(userId);

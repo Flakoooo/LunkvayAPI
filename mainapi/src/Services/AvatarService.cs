@@ -32,7 +32,7 @@ namespace LunkvayAPI.src.Services
                 throw new ArgumentNullException(nameOfDefaultImage);
             }
 
-            _ = Directory.CreateDirectory(_avatarsPath);
+            Directory.CreateDirectory(_avatarsPath);
         }
 
         public async Task<ServiceResult<byte[]>> GetUserAvatarById(Guid userId)
@@ -64,10 +64,7 @@ namespace LunkvayAPI.src.Services
                     }
                     filePath = defaultFilePath;
                 }
-                else
-                {
-                    return ServiceResult<byte[]>.Failure("Аватар не найден", HttpStatusCode.NotFound);
-                }
+                else return ServiceResult<byte[]>.Failure("Аватар не найден", HttpStatusCode.NotFound);
             }
 
             byte[] fileBytes = await File.ReadAllBytesAsync(filePath);

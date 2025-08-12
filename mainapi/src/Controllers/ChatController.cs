@@ -1,12 +1,10 @@
 ﻿using LunkvayAPI.src.Models.DTO;
-using LunkvayAPI.src.Models.Entities.ChatAPI;
+using LunkvayAPI.src.Models.Entities;
 using LunkvayAPI.src.Models.Requests;
 using LunkvayAPI.src.Models.Utils;
-using LunkvayAPI.src.Services;
 using LunkvayAPI.src.Services.Interfaces;
-using LunkvayApp.src.Models.Enums;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace LunkvayAPI.src.Controllers
 {
@@ -17,18 +15,33 @@ namespace LunkvayAPI.src.Controllers
         private readonly ILogger<ChatController> _logger = logger;
         private readonly IChatService _chatService = chatService;
 
-        [HttpPost("create")]
-        public async Task<IActionResult> CreateRoom([FromBody] ChatRequest chatRequest)
+        [HttpGet("get/{userId}")]
+        public async Task<IActionResult> GetRooms(Guid userId)
         {
-            //перенести данную реализацию в сервис
-            //проверка на существующий личный чат
-            Chat chat = new()
+            ServiceResult<IEnumerable<ChatDTO>> result = await _chatService.GetRooms(userId);
+            if (result.IsSuccess)
             {
-                Name = chatRequest.Name,
-                Type = chatRequest.Type
-            };
+                _logger.LogDebug("Запрос списка чатов для {UserId}", userId);
+                return Ok(result.Result);
+            }
 
-            return Ok();
+            _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
+            return StatusCode((int)result.StatusCode, result.Error);
+        }
+
+        [HttpPost("create")]
+        // /api/v1/chat/create?creatorId=id
+        public async Task<IActionResult> CreateRoom([FromBody] ChatRequest chatRequest, [FromQuery] Guid creatorId)
+        {
+            ServiceResult<ChatDTO> result = await _chatService.CreateRoom(chatRequest, creatorId);
+            if (result.IsSuccess)
+            {
+                _logger.LogDebug("Создание чата пользователем {CreatorId}", creatorId);
+                return Ok(result.Result);
+            }
+
+            _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
+            return StatusCode((int)result.StatusCode, result.Error);
         }
 
         [HttpPost("{roomId}/join/{userId}")]

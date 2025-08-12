@@ -27,9 +27,7 @@ namespace LunkvayAPI.src.Services
             _logger = logger;
 
             if (_jwtSettings.Key is null or "")
-            {
                 throw new ArgumentNullException(jwtKeyMissing);
-            }
         }
 
         public async Task<ServiceResult<string>> Login(LoginRequest loginRequest)
@@ -37,14 +35,9 @@ namespace LunkvayAPI.src.Services
             _logger.LogInformation("({Date}) Осуществляется вход для {Email}", DateTime.Now, loginRequest.Email);
 
             ServiceResult<User?> result = await _userService.GetUserByEmail(loginRequest.Email);
-            if (result is null || 
-                !result.IsSuccess || 
-                result.Result is null || 
+            if (result is null || !result.IsSuccess || result.Result is null || 
                 !BCrypt.Net.BCrypt.Verify(loginRequest.Password, result.Result.PasswordHash)
-            )
-            {
-                return ServiceResult<string>.Failure("Неверный email или пароль", HttpStatusCode.UnprocessableContent);
-            }
+            ) return ServiceResult<string>.Failure("Неверный email или пароль", HttpStatusCode.UnprocessableContent);
 
             User user = result.Result;
             List<Claim> claims =
@@ -57,9 +50,8 @@ namespace LunkvayAPI.src.Services
             ];
 
             if (_jwtSettings.Key is null or "")
-            {
                 return ServiceResult<string>.Failure(jwtKeyMissing, HttpStatusCode.InternalServerError);
-            }
+
             SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(_jwtSettings.Key));
 
             JwtSecurityToken token = new(
@@ -82,22 +74,16 @@ namespace LunkvayAPI.src.Services
 
             ServiceResult<User> result = await _userService.CreateUser(user);
             if (result is null)
-            {
                 return ServiceResult<User>.Failure("Ошибка при регистрации пользователя", HttpStatusCode.InternalServerError);
-            }
 
-            if (result.IsSuccess && result.Result is not null)
+            if (!result.IsSuccess || result.Result is null)
             {
-                return ServiceResult<User>.Success(result.Result);
+                if (result.Error is not null)
+                    return ServiceResult<User>.Failure(result.Error, result.StatusCode);
+                else
+                    return ServiceResult<User>.Failure("Ошибка при регистрации пользователя", HttpStatusCode.InternalServerError);
             }
-            else if (result.Error is not null)
-            {
-                return ServiceResult<User>.Failure(result.Error, result.StatusCode);
-            }
-            else
-            {
-                return ServiceResult<User>.Failure("Ошибка при регистрации пользователя", HttpStatusCode.InternalServerError);
-            }
+            else return ServiceResult<User>.Success(result.Result);
         }
     }
 }

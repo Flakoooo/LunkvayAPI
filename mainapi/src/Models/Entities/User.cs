@@ -40,29 +40,26 @@ namespace LunkvayAPI.src.Models.Entities
         [Column("last_login")]
         public DateTime LastLogin { get; set; }
 
-        [Column("is_active")]
-        public bool IsActive { get; set; }
+        [Column("is_online")]
+        public bool IsOnline { get; set; }
 
         public static User Create(
             string userName, string email, string password,
             string firstName = "", string lastName = "",
-            bool isDeleted = false, bool isActive = true
-        )
+            bool isDeleted = false, bool isOnline = true
+        ) => new()
         {
-            return new()
-            {
-                //Id в базе данных
-                UserName = userName,
-                Email = email,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
-                FirstName = firstName,
-                LastName = lastName,
-                //CreatedAt в базе данных по UTC
-                IsDeleted = isDeleted,
-                //DeletedAt nullable
-                //LastLogin в базе данных по UTC
-                IsActive = isActive
-            };
-        }
+            //Id в базе данных
+            UserName = userName,
+            Email = email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+            FirstName = firstName,
+            LastName = lastName,
+            //CreatedAt в базе данных по UTC
+            IsDeleted = isDeleted,
+            //DeletedAt nullable
+            //LastLogin в базе данных по UTC
+            IsOnline = isOnline
+        };
     }
 }

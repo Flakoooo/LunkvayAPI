@@ -33,7 +33,7 @@ namespace LunkvayAPI.src.Services
 
             List<UserListItemDTO> friends = await _dbContext.Users
                 .Where(u => friendIds.Contains(u.Id) && !u.IsDeleted)
-                .Select(u => UserListItemDTO.Create(u.Id.ToString(), u.FirstName, u.IsActive, u.LastName))
+                .Select(u => UserListItemDTO.Create(u.Id.ToString(), u.FirstName, u.IsOnline, u.LastName))
                 .ToListAsync();
 
             _logger.LogInformation("({Date}) Получено {Count} друзей", DateTime.UtcNow, friendIds.Count);
@@ -49,12 +49,12 @@ namespace LunkvayAPI.src.Services
                 .Select(f => f.UserId1 == userId ? f.UserId2 : f.UserId1)
                 .ToListAsync();
 
-            IEnumerable<UserListItemDTO> friends = [];
+            List<UserListItemDTO> friends = [];
             if (friendIds.Count <= count)
             {
                 friends = await _dbContext.Users
                     .Where(u => friendIds.Contains(u.Id) && !u.IsDeleted)
-                    .Select(u => UserListItemDTO.Create(u.Id.ToString(), u.FirstName, u.IsActive, u.LastName))
+                    .Select(u => UserListItemDTO.Create(u.Id.ToString(), u.FirstName, u.IsOnline, u.LastName))
                     .ToListAsync();
             }
             else
@@ -63,12 +63,12 @@ namespace LunkvayAPI.src.Services
                 List<Guid> randomFriendIds = [.. friendIds.OrderBy(x => random.Next()).Take(count)];
 
                 friends = await _dbContext.Users
-                    .Where(u => friendIds.Contains(u.Id) && !u.IsDeleted)
-                    .Select(u => UserListItemDTO.Create(u.Id.ToString(), u.FirstName, u.IsActive, u.LastName))
+                    .Where(u => randomFriendIds.Contains(u.Id) && !u.IsDeleted)
+                    .Select(u => UserListItemDTO.Create(u.Id.ToString(), u.FirstName, u.IsOnline, u.LastName))
                     .ToListAsync();
             }
 
-            _logger.LogInformation("({Date}) Получено {Count} друзей, всего {CountAll} друзей", DateTime.UtcNow, friends.Count(), friendIds.Count());
+            _logger.LogInformation("({Date}) Получено {Count} друзей, всего {CountAll} друзей", DateTime.UtcNow, friends.Count, friendIds.Count);
             return ServiceResult<(IEnumerable<UserListItemDTO> Friends, int FriendsCount)>.Success((friends, friendIds.Count));
         }
     }

@@ -1,4 +1,5 @@
 ﻿using LunkvayAPI.src.Models.Entities;
+using LunkvayAPI.src.Models.Entities.ChatAPI;
 using LunkvayAPI.src.Models.Entities.FriendsAPI;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,57 +7,116 @@ namespace LunkvayAPI.src.Utils
 {
     public class LunkvayDBContext(DbContextOptions<LunkvayDBContext> options) : DbContext(options)
     {
+        private readonly string GuidDefaultSQL = "gen_random_uuid()";
+        private readonly string DateTimeDefaultSQL = "TIMEZONE('UTC', NOW())";
+
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Avatar> Avatars { get; set; } = null!;
         public DbSet<UserProfile> Profiles { get; set; } = null!;
         public DbSet<Friendship> Friendships { get; set; } = null!;
         public DbSet<FriendshipLabel> FriendshipLabels { get; set; } = null!;
+        public DbSet<Chat> Chats { get; set; } = null!;
+        public DbSet<ChatMember> ChatMembers { get; set; } = null!;
+        public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            _ = modelBuilder.Entity<User>(static entity =>
+            modelBuilder.Entity<User>(entity =>
             {
-                _ = entity.Property(static u => u.Id).HasDefaultValueSql("gen_random_uuid()");
-                _ = entity.Property(static u => u.CreatedAt).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
-                _ = entity.Property(static u => u.LastLogin).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
-                _ = entity.HasIndex(static u => u.IsDeleted);
+                entity.Property(u => u.Id).HasDefaultValueSql(GuidDefaultSQL);
+                entity.Property(u => u.CreatedAt).HasDefaultValueSql(DateTimeDefaultSQL);
+                entity.Property(u => u.LastLogin).HasDefaultValueSql(DateTimeDefaultSQL);
+
+                entity.HasIndex(u => u.IsDeleted);
             });
 
-            _ = modelBuilder.Entity<Avatar>(static entity =>
+            modelBuilder.Entity<Avatar>(entity =>
             {
-                _ = entity.Property(static a => a.Id).HasDefaultValueSql("gen_random_uuid()");
-                _ = entity.Property(static u => u.UpdatedAt).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
+                entity.Property(a => a.Id).HasDefaultValueSql(GuidDefaultSQL);
+                entity.Property(u => u.UpdatedAt).HasDefaultValueSql(DateTimeDefaultSQL);
 
-                _ = entity.HasOne(static a => a.User).WithOne().OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(a => a.User).WithOne().OnDelete(DeleteBehavior.Cascade);
             });
 
-            _ = modelBuilder.Entity<UserProfile>(static entity =>
+            modelBuilder.Entity<UserProfile>(entity =>
             {
-                _ = entity.Property(static up => up.Id).HasDefaultValueSql("gen_random_uuid()");
+                entity.Property(up => up.Id).HasDefaultValueSql(GuidDefaultSQL);
 
-                _ = entity.HasOne(static up => up.User).WithOne().OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(up => up.User).WithOne().OnDelete(DeleteBehavior.Cascade);
             });
 
-            _ = modelBuilder.Entity<Friendship>(static entity =>
+            modelBuilder.Entity<Friendship>(entity =>
             {
-                _ = entity.Property(static f => f.Id).HasDefaultValueSql("gen_random_uuid()");
-                _ = entity.HasIndex(static f => new { f.UserId1, f.UserId2 }).IsUnique();
-                _ = entity.HasIndex(static f => f.Status);
-                _ = entity.Property(static f => f.CreatedAt).HasDefaultValueSql("TIMEZONE('UTC', NOW())");
-                _ = entity.Property(static f => f.UpdatedAt).ValueGeneratedOnUpdate().HasDefaultValueSql("TIMEZONE('UTC', NOW())");
+                entity.Property(f => f.Id).HasDefaultValueSql(GuidDefaultSQL);
+                entity.Property(f => f.CreatedAt).HasDefaultValueSql(DateTimeDefaultSQL);
+                entity.Property(f => f.UpdatedAt).ValueGeneratedOnUpdate().HasDefaultValueSql(DateTimeDefaultSQL);
 
-                _ = entity.HasOne(static f => f.User1).WithMany().HasForeignKey(static f => f.UserId1).OnDelete(DeleteBehavior.Cascade);
-                _ = entity.HasOne(static f => f.User2).WithMany().HasForeignKey(static f => f.UserId2).OnDelete(DeleteBehavior.Cascade);
-                _ = entity.HasOne(static f => f.Initiator).WithMany().HasForeignKey(static f => f.InitiatorId);
+                entity.HasIndex(f => new { f.UserId1, f.UserId2 }).IsUnique();
+                entity.HasIndex(f => f.Status);
+
+                entity.HasOne(f => f.User1).WithMany().HasForeignKey(f => f.UserId1).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(f => f.User2).WithMany().HasForeignKey(f => f.UserId2).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(f => f.Initiator).WithMany().HasForeignKey(f => f.InitiatorId);
             });
 
-            _ = modelBuilder.Entity<FriendshipLabel>(static entity =>
+            modelBuilder.Entity<FriendshipLabel>(entity =>
             {
-                _ = entity.Property(static fl => fl.Id).HasDefaultValueSql("gen_random_uuid()");
-                _ = entity.HasOne(static fl => fl.Friendship).WithMany(static f => f.Labels).HasForeignKey(static fl => fl.FriendshipId);
-                _ = entity.HasIndex(static fl => fl.FriendshipId);
-                _ = entity.HasOne(static fl => fl.Creator).WithMany().HasForeignKey(static fl => fl.CreatorId).OnDelete(DeleteBehavior.Cascade);
-                _ = entity.HasIndex(static fl => fl.CreatorId);
+                entity.Property(fl => fl.Id).HasDefaultValueSql(GuidDefaultSQL);
+
+                entity.HasIndex(fl => fl.FriendshipId);
+                entity.HasIndex(fl => fl.CreatorId);
+
+                entity.HasOne(fl => fl.Friendship).WithMany(f => f.Labels).HasForeignKey(fl => fl.FriendshipId);
+                entity.HasOne(fl => fl.Creator).WithMany().HasForeignKey(fl => fl.CreatorId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Chat>(entity =>
+            {
+                entity.Property(c => c.Id).HasDefaultValueSql(GuidDefaultSQL);
+                entity.Property(c => c.Type).HasConversion<string>();
+                entity.Property(c => c.CreatedAt).HasDefaultValueSql(DateTimeDefaultSQL);
+                entity.Property(c => c.UpdatedAt).ValueGeneratedOnUpdate().HasDefaultValueSql(DateTimeDefaultSQL);
+
+                entity.HasIndex(c => c.CreatorId);
+                entity.HasIndex(c => c.Type);
+                entity.HasIndex(c => c.UpdatedAt);
+
+                entity.HasOne(c => c.Creator).WithMany().HasForeignKey(c => c.CreatorId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(c => c.LastMessage).WithOne().HasForeignKey<Chat>(c => c.LastMessageId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<ChatMember>(entity =>
+            {
+                entity.Property(cm => cm.Id).HasDefaultValueSql(GuidDefaultSQL);
+                entity.Property(cm => cm.Role).HasConversion<string>();
+
+                entity.HasIndex(cm => cm.ChatId);
+                entity.HasIndex(cm => cm.MemberId);
+                entity.HasIndex(cm => new { cm.ChatId, cm.MemberId }).IsUnique();
+
+                entity.HasOne(cm => cm.Chat).WithMany(c => c.Members).HasForeignKey(cm => cm.ChatId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(cm => cm.Member).WithMany().HasForeignKey(cm => cm.MemberId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ChatMessage>(entity =>
+            {
+                entity.Property(cm => cm.Id).HasDefaultValueSql(GuidDefaultSQL);
+                entity.Property(cm => cm.SystemMessageType).HasConversion<string>();
+                entity.Property(cm => cm.IsEdited).HasDefaultValue(false);
+                entity.Property(cm => cm.IsPinned).HasDefaultValue(false);
+                entity.Property(cm => cm.IsDeleted).HasDefaultValue(false);
+                entity.Property(cm => cm.CreatedAt).HasDefaultValueSql(DateTimeDefaultSQL);
+                entity.Property(cm => cm.UpdatedAt).ValueGeneratedOnUpdate().HasDefaultValueSql(DateTimeDefaultSQL);
+
+                entity.HasIndex(cm => cm.ChatId);
+                entity.HasIndex(cm => cm.SenderId);
+                entity.HasIndex(cm => new { cm.SenderId, cm.CreatedAt });
+                entity.HasIndex(cm => cm.IsDeleted);
+                entity.HasIndex(cm => new { cm.ChatId, cm.IsPinned });
+                entity.HasIndex(cm => cm.CreatedAt);
+
+                entity.HasOne(cm => cm.Chat).WithMany(c => c.Messages).HasForeignKey(cm => cm.ChatId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(cm => cm.Sender).WithMany().HasForeignKey(cm => cm.SenderId).OnDelete(DeleteBehavior.Restrict);
             });
         }
     }

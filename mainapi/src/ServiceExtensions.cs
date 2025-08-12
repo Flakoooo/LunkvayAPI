@@ -7,12 +7,12 @@ namespace LunkvayAPI.src
     {
         public static void AddCustomServices(this IServiceCollection services)
         {
-            _ = services.AddScoped<IUserService, UserService>();
-            _ = services.AddScoped<IAuthService, AuthService>();
-            _ = services.AddScoped<IProfileService, ProfileService>();
-            _ = services.AddScoped<IAvatarService, AvatarService>();
-            _ = services.AddScoped<IFriendsService, FriendsService>();
-            _ = services.AddScoped<IChatService, ChatService>();
+            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IProfileService, ProfileService>();
+            services.AddScoped<IAvatarService, AvatarService>();
+            services.AddScoped<IFriendsService, FriendsService>();
+            services.AddScoped<IChatService, ChatService>();
         }
     }
 }

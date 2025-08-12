@@ -1,28 +1,84 @@
 ﻿using LunkvayAPI.src.Controllers;
 using LunkvayAPI.src.Models.DTO;
-using LunkvayAPI.src.Models.Entities;
 using LunkvayAPI.src.Models.Entities.ChatAPI;
+using LunkvayAPI.src.Models.Enums.ChatEnum;
+using LunkvayAPI.src.Models.Requests;
 using LunkvayAPI.src.Models.Utils;
 using LunkvayAPI.src.Services.Interfaces;
-using LunkvayApp.src.Models.Enums;
+using LunkvayAPI.src.Utils;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
 namespace LunkvayAPI.src.Services
 {
     public class ChatService(
         ILogger<ChatService> logger, 
         IHubContext<ChatHub> hubContext, 
-        UserService userService
+        IUserService userService,
+        LunkvayDBContext lunkvayDBContext
     ) : IChatService
     {
         private readonly ILogger<ChatService> _logger = logger;
         private readonly IHubContext<ChatHub> _hubContext = hubContext;
-        private readonly UserService _userService = userService;
+        private readonly IUserService _userService = userService;
+        private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
 
-        public Task<ServiceResult<Chat>> CreateRoom(string name, ChatType type)
+        public async Task<ServiceResult<IEnumerable<ChatDTO>>> GetRooms(Guid userId)
         {
-            throw new NotImplementedException();
+            List<ChatDTO> chats = await _dbContext.Chats
+                .Where(c => c.Members.Any(m => m.MemberId == userId))
+                .Select(c => new ChatDTO
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    LastMessage = c.LastMessage != null ? new ChatMessageDTO
+                    {
+                        Message = c.LastMessage.Message,
+                        CreatedAt = c.LastMessage.CreatedAt,
+                        SystemMessageType = c.LastMessage.SystemMessageType,
+                        Sender = c.LastMessage.Sender != null ? new UserDTO
+                        {
+                            UserName = c.LastMessage.Sender.UserName,
+                            FirstName = c.LastMessage.Sender.FirstName,
+                            LastName = c.LastMessage.Sender.LastName,
+                        } : null
+                    } : null
+                })
+                .ToListAsync();
+
+            return ServiceResult<IEnumerable<ChatDTO>>.Success(chats);
+        }
+
+        public async Task<ServiceResult<ChatDTO>> CreateRoom(ChatRequest chatRequest, Guid? creatorId)
+        {
+            Chat chat = Chat.Create(creatorId, null, chatRequest.Name, null, chatRequest.Type);
+            await _dbContext.AddAsync(chat);
+            await _dbContext.SaveChangesAsync();
+
+            ChatDTO chatDTO = new()
+            {
+                Id = chat.Id,
+                LastMessage = null,
+                Name = chat.Name,
+            };
+
+            foreach (UserDTO member in chatRequest.Members)
+            {
+                if (member.Id is not null)
+                {
+                    ChatMember chatMember = new()
+                    {
+                        ChatId = chat.Id,
+                        MemberId = (Guid)member.Id,
+                        Role = ChatMemberRole.Member
+                    };
+                    await _dbContext.AddAsync(chatMember);
+                }
+            }
+
+            await _dbContext.SaveChangesAsync();
+
+            return ServiceResult<ChatDTO>.Success(chatDTO);
         }
 
         public async Task InviteInRoom(Guid roomId, Guid senderId, Guid newMemberId)
@@ -41,10 +97,12 @@ namespace LunkvayAPI.src.Services
                     : $"{newMember.Result.UserName}"
                 : "[ОШИБКА]";
 
-            //создание участника чата
-            ChatMember chatMember = new();
+            ChatMember chatMember = ChatMember.Create(roomId, newMemberId, null, ChatMemberRole.Member);
+            await _dbContext.ChatMembers.AddAsync(chatMember);
 
             await _hubContext.Clients.Group(roomId.ToString()).SendAsync("Notify", $"{senderName} пригласил {newbeName} в чат");
+
+            await _dbContext.SaveChangesAsync();
         }
 
         public async Task JoinInRoom(Guid roomId, Guid newMemberId)
@@ -56,16 +114,14 @@ namespace LunkvayAPI.src.Services
                     : $"{newMember.Result.UserName}"
                 : "[ОШИБКА]";
 
-            //получение chatId
-            Chat chat = new();
-
-            //создание участника чата
-            ChatMember chatMember = new();
+            Chat chat = await _dbContext.Chats.Where(c => c.Id == roomId).FirstAsync();
+            ChatMember chatMember = ChatMember.Create(roomId, newMemberId, null, ChatMemberRole.Member);
+            await _dbContext.ChatMembers.AddAsync(chatMember);
 
             if (chat.Type is ChatType.Group)
-            {
                 await _hubContext.Clients.Group(roomId.ToString()).SendAsync("Notify", $"{newbeName} вошел в чат");
-            }
+
+            await _dbContext.SaveChangesAsync();
         }
 
         public async Task LeaveFromRoom(Guid roomId, Guid userId)
@@ -77,7 +133,13 @@ namespace LunkvayAPI.src.Services
                     : $"{user.Result.UserName}"
                 : "[ОШИБКА]";
 
+            await _dbContext.ChatMembers
+                .Where(c => c.ChatId == roomId && c.MemberId == userId)
+                .ExecuteDeleteAsync();
+
             await _hubContext.Clients.Group(roomId.ToString()).SendAsync("Notify", $"{leftName} покинул чат");
+
+            await _dbContext.SaveChangesAsync();
         }
     }
 }

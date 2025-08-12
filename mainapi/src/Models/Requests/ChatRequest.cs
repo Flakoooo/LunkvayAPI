@@ -1,4 +1,5 @@
-﻿using LunkvayApp.src.Models.Enums;
+﻿using LunkvayAPI.src.Models.DTO;
+using LunkvayAPI.src.Models.Enums.ChatEnum;
 using System.ComponentModel.DataAnnotations;
 
 namespace LunkvayAPI.src.Models.Requests
@@ -8,6 +9,9 @@ namespace LunkvayAPI.src.Models.Requests
         public string? Name { get; set; }
 
         [Required]
-        public ChatType Type { get; set; }
+        public required ChatType Type { get; set; }
+
+        [Required]
+        public required IEnumerable<UserDTO> Members { get; set; }
     }
 }
