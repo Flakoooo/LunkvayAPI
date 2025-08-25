@@ -17,12 +17,18 @@ namespace LunkvayAPI.src.Services
         {
             UserDTO? result = await _dbContext.Users
                     .Where(u => u.Id == userId)
-                    .Select(u => UserDTO.Create(
-                            u.Id, u.UserName, u.Email,
-                            u.CreatedAt, u.IsDeleted, u.LastLogin, u.IsOnline,
-                            u.FirstName, u.LastName, u.DeletedAt
-                        )
-                    )
+                    .Select(u => new UserDTO
+                    {
+                        Id = u.Id,
+                        UserName = u.UserName,
+                        Email = u.Email,
+                        FirstName = u.FirstName,
+                        LastName = u.LastName,
+                        CreatedAt = u.CreatedAt,
+                        IsDeleted = u.IsDeleted,
+                        LastLogin = u.LastLogin,
+                        IsOnline = u.IsOnline
+                    })
                     .FirstOrDefaultAsync();
 
             if (result is null)
@@ -43,12 +49,18 @@ namespace LunkvayAPI.src.Services
         public async Task<ServiceResult<IEnumerable<UserDTO>>> GetUsers()
         {
             List<UserDTO> result = await _dbContext.Users
-                .Select(static u => UserDTO.Create(
-                        u.Id, u.UserName, u.Email,
-                        u.CreatedAt, u.IsDeleted, u.LastLogin, u.IsOnline,
-                        u.FirstName, u.LastName, u.DeletedAt
-                    )
-                )
+                .Select(u => new UserDTO
+                {
+                    Id = u.Id,
+                    UserName = u.UserName,
+                    Email = u.Email,
+                    FirstName = u.FirstName,
+                    LastName = u.LastName,
+                    CreatedAt = u.CreatedAt,
+                    IsDeleted = u.IsDeleted,
+                    LastLogin = u.LastLogin,
+                    IsOnline = u.IsOnline
+                })
                 .ToListAsync();
 
             return ServiceResult<IEnumerable<UserDTO>>.Success(result);

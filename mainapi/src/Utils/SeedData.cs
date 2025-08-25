@@ -55,11 +55,42 @@ namespace LunkvayAPI.src.Utils
                     ?? throw new Exception(userException);
 
                 await context.Friendships.AddRangeAsync(
-                    Friendship.Create(userRyan.Id, userRinat.Id, FriendshipStatus.Accepted, userRinat.Id),
-                    Friendship.Create(userChristian.Id, userTom.Id, FriendshipStatus.Accepted, userTom.Id),
-                    Friendship.Create(userJake.Id, userRyan.Id, FriendshipStatus.Rejected, userJake.Id),
-                    Friendship.Create(userChristian.Id, userRyan.Id, FriendshipStatus.Accepted, userRyan.Id),
-                    Friendship.Create(userRyan.Id, userTom.Id, FriendshipStatus.Pending, userTom.Id)
+                    new Friendship
+                    {
+                        UserId1 = userRyan.Id,
+                        UserId2 = userRinat.Id,
+                        Status = FriendshipStatus.Accepted,
+                        InitiatorId = userRyan.Id,
+                    },
+                    new Friendship
+                    {
+                        UserId1 = userChristian.Id,
+                        UserId2 = userTom.Id,
+                        Status = FriendshipStatus.Accepted,
+                        InitiatorId = userTom.Id,
+                    },
+                    new Friendship
+                    {
+                        UserId1 = userJake.Id,
+                        UserId2 = userRyan.Id,
+                        Status = FriendshipStatus.Rejected,
+                        InitiatorId = userJake.Id,
+                    },
+                    new Friendship
+                    {
+                        UserId1 = userChristian.Id,
+                        UserId2 = userRyan.Id,
+                        Status = FriendshipStatus.Accepted,
+                        InitiatorId = userRyan.Id,
+                    },
+                    new Friendship
+                    {
+                        UserId1 = userRyan.Id,
+                        UserId2 = userTom.Id,
+                        Status = FriendshipStatus.Pending,
+                        InitiatorId = userTom.Id,
+                    }
+
                 );
                 await context.SaveChangesAsync();
             }
@@ -76,9 +107,9 @@ namespace LunkvayAPI.src.Utils
                     ?? throw new Exception(userException);
 
                 await context.Avatars.AddRangeAsync(
-                    Avatar.Create(userRyan.Id, $"{userRyan.UserName}.jpeg"),
-                    Avatar.Create(userRinat.Id, $"{userRinat.UserName}.jpg"),
-                    Avatar.Create(userChristian.Id, $"{userChristian.UserName}.jpg")
+                    new Avatar { UserId = userRyan.Id, FileName = $"{userRyan.UserName}.jpeg" },
+                    new Avatar { UserId = userRinat.Id, FileName = $"{userRinat.UserName}.jpg" },
+                    new Avatar { UserId = userChristian.Id, FileName = $"{userChristian.UserName}.jpg" }
                 );
                 await context.SaveChangesAsync();
             }
@@ -89,7 +120,12 @@ namespace LunkvayAPI.src.Utils
                 userRyan ??= await users.FirstOrDefaultAsync(u => u.Email.Equals(ryanGoslingEmail))
                     ?? throw new Exception(userException);
                 await context.Profiles.AddRangeAsync(
-                    UserProfile.Create(userRyan.Id, "Зачем меня просят рассказать о слове 'себе'?", "Зачем меня просят рассказать о слове 'себе'?")
+                    new UserProfile
+                    {
+                        UserId = userRyan.Id,
+                        Status = "Зачем меня просят рассказать о слове 'себе'?",
+                        About = "Зачем меня просят рассказать о слове 'себе'?"
+                    }
                 );
                 await context.SaveChangesAsync();
             }
@@ -106,8 +142,20 @@ namespace LunkvayAPI.src.Utils
                 userTom ??= await users.FirstOrDefaultAsync(u => u.Email.Equals(tomHardyEmail))
                     ?? throw new Exception(userException);
 
-                Chat personalChatRyanAndRinat = Chat.Create(null, null, null, null, ChatType.Personal);
-                Chat groupChat = Chat.Create(userRyan.Id, null, "Барбарики", null, ChatType.Group);
+                Chat personalChatRyanAndRinat = new()
+                {
+                    CreatorId = null,
+                    LastMessageId = null,
+                    Name = null,
+                    Type = ChatType.Personal,
+                };
+                Chat groupChat = new()
+                {
+                    CreatorId = userRyan.Id,
+                    LastMessageId = null,
+                    Name = "Барбарики",
+                    Type = ChatType.Group
+                };
                 await context.Chats.AddRangeAsync(
                     personalChatRyanAndRinat, groupChat
                 );
@@ -119,12 +167,48 @@ namespace LunkvayAPI.src.Utils
                 groupChat = await chats.FirstOrDefaultAsync(c => c.Type == ChatType.Group)
                     ?? throw new Exception(userChat);
                 await context.ChatMembers.AddRangeAsync(
-                    ChatMember.Create(personalChatRyanAndRinat.Id, userRyan.Id, "Драйвер", ChatMemberRole.Member),
-                    ChatMember.Create(personalChatRyanAndRinat.Id, userRinat.Id, null, ChatMemberRole.Member),
-                    ChatMember.Create(groupChat.Id, userRyan.Id, "Бегущий по лезвию", ChatMemberRole.Owner),
-                    ChatMember.Create(groupChat.Id, userRinat.Id, null, ChatMemberRole.Member),
-                    ChatMember.Create(groupChat.Id, userChristian.Id, null, ChatMemberRole.Administrator),
-                    ChatMember.Create(groupChat.Id, userTom.Id, "Я - Веном", ChatMemberRole.Member)
+                    new ChatMember
+                    {
+                        ChatId = personalChatRyanAndRinat.Id,
+                        MemberId = userRyan.Id,
+                        MemberName = "Драйвер",
+                        Role = ChatMemberRole.Member
+                    },
+                    new ChatMember
+                    {
+                        ChatId = personalChatRyanAndRinat.Id,
+                        MemberId = userRinat.Id,
+                        MemberName = null,
+                        Role = ChatMemberRole.Member
+                    },
+                    new ChatMember
+                    {
+                        ChatId = groupChat.Id,
+                        MemberId = userRyan.Id,
+                        MemberName = "Бегущий по лезвию",
+                        Role = ChatMemberRole.Owner
+                    },
+                    new ChatMember
+                    {
+                        ChatId = groupChat.Id,
+                        MemberId = userRinat.Id,
+                        MemberName = null,
+                        Role = ChatMemberRole.Member
+                    },
+                    new ChatMember
+                    {
+                        ChatId = groupChat.Id,
+                        MemberId = userChristian.Id,
+                        MemberName = null,
+                        Role = ChatMemberRole.Administrator
+                    },
+                    new ChatMember
+                    {
+                        ChatId = groupChat.Id,
+                        MemberId = userTom.Id,
+                        MemberName = "Я - Веном",
+                        Role = ChatMemberRole.Member
+                    }
                 );
                 await context.SaveChangesAsync();
             }

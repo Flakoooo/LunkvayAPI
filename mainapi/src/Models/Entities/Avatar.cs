@@ -21,17 +21,5 @@ namespace LunkvayAPI.src.Models.Entities
 
         [ForeignKey("UserId")]
         public virtual User? User { get; set; }
-
-
-        public static Avatar Create(Guid userId, string fileName)
-        {
-            return new()
-            {
-                //Id в базе данных
-                UserId = userId,
-                FileName = fileName
-                //UpdatedAt в базе данных по UTC
-            };
-        }
     }
 }

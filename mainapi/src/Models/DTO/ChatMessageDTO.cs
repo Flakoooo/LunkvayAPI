@@ -12,5 +12,6 @@ namespace LunkvayAPI.src.Models.DTO
         public bool? IsPinned { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public bool? IsMyMessage { get; set; }
     }
 }

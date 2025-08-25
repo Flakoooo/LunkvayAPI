@@ -19,7 +19,7 @@ namespace LunkvayAPI.src.Models.Entities.ChatAPI
         public required Guid MemberId { get; set; }
 
         [Column("member_name")]
-        public string? MemberName { get; set; }
+        public string? MemberName { get; set; } = null;
 
         [Column("role")]
         [Required]
@@ -32,14 +32,5 @@ namespace LunkvayAPI.src.Models.Entities.ChatAPI
 
         [ForeignKey("MemberId")]
         public virtual User? Member { get; set; }
-
-
-        public static ChatMember Create(Guid chatId, Guid memberId, string? memberName, ChatMemberRole role) => new()
-        {
-            ChatId = chatId,
-            MemberId = memberId,
-            MemberName = memberName,
-            Role = role
-        };
     }
 }

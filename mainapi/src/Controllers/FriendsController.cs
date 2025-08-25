@@ -17,7 +17,7 @@ namespace LunkvayAPI.src.Controllers
         {
             // /api/v1/friends/{userId}
             // /api/v1/friends/{userId}?page=1
-            // /api/v1/friends/{userId}?page=1?pageSize=10
+            // /api/v1/friends/{userId}?page=1&pageSize=10
             _logger.LogInformation("Запрос друзей пользователя {Id}, страница {Page}", userId, page);
 
             ServiceResult<IEnumerable<UserListItemDTO>> result

@@ -1,12 +1,10 @@
 ﻿using LunkvayAPI.src.Models.DTO;
-using LunkvayAPI.src.Models.Entities;
 using LunkvayAPI.src.Models.Requests;
 using LunkvayAPI.src.Models.Utils;
-using LunkvayAPI.src.Services.Interfaces;
+using LunkvayAPI.src.Services.ChatAPI.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace LunkvayAPI.src.Controllers
+namespace LunkvayAPI.src.Controllers.ChatAPI
 {
     [ApiController]
     [Route("api/v1/[controller]")]
@@ -22,6 +20,23 @@ namespace LunkvayAPI.src.Controllers
             if (result.IsSuccess)
             {
                 _logger.LogDebug("Запрос списка чатов для {UserId}", userId);
+                return Ok(result.Result);
+            }
+
+            _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
+            return StatusCode((int)result.StatusCode, result.Error);
+        }
+
+        [HttpGet("messages/{userId}/{chatId}")]
+        public async Task<IActionResult> GetMessages(Guid userId, Guid chatId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            // /api/v1/messages/{userId}/{chatId}
+            // /api/v1/messages/{userId}/{chatId}?page=1
+            // /api/v1/messages/{userId}/{chatId}?page=1&pageSize=10
+            ServiceResult<IEnumerable<ChatMessageDTO>> result = await _chatService.GetChatMessages(userId, chatId, page, pageSize);
+            if (result.IsSuccess)
+            {
+                _logger.LogDebug("Получение списка сообщение для чата {ChatId} от пользователя {UserId}", chatId, userId);
                 return Ok(result.Result);
             }
 

@@ -15,7 +15,9 @@ namespace LunkvayAPI.src.Services
 
         private readonly string _defaultUserImageName = "default.jpg";
 
-        public AvatarService(ILogger<AvatarService> logger, LunkvayDBContext lunkvayDBContext, IConfiguration configuration)
+        public AvatarService(
+            ILogger<AvatarService> logger, LunkvayDBContext lunkvayDBContext, IConfiguration configuration
+        )
         {
             _logger = logger;
             _dbContext = lunkvayDBContext;
@@ -44,7 +46,7 @@ namespace LunkvayAPI.src.Services
             }
 
             _logger.LogDebug("Поиск аватара для {UserId}", userId);
-            Avatar? avatar = await _dbContext.Avatars.Where(a => a.UserId == userId).FirstOrDefaultAsync();
+            Avatar? avatar = await _dbContext.Avatars.FirstOrDefaultAsync(a => a.UserId == userId);
 
             string filePath = avatar is null
                 ? Path.Combine(_avatarsPath, _defaultUserImageName) 

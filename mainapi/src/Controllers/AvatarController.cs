@@ -7,7 +7,10 @@ namespace LunkvayAPI.src.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
-    public class AvatarController(ILogger<AvatarController> logger, IAvatarService avatarService) : Controller
+    public class AvatarController(
+        ILogger<AvatarController> logger, 
+        IAvatarService avatarService
+    ) : Controller
     {
         private readonly ILogger<AvatarController> _logger = logger;
         private readonly IAvatarService _avatarService = avatarService;

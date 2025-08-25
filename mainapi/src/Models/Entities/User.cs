@@ -43,6 +43,9 @@ namespace LunkvayAPI.src.Models.Entities
         [Column("is_online")]
         public bool IsOnline { get; set; }
 
+
+        public string FullName => $"{FirstName} {LastName}";
+
         public static User Create(
             string userName, string email, string password,
             string firstName = "", string lastName = "",

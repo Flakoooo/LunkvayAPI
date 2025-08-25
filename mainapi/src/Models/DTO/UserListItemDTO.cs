@@ -2,20 +2,9 @@
 {
     public record class UserListItemDTO
     {
-        public required string UserId { get; set; }
+        public required Guid UserId { get; set; }
         public required string FirstName { get; set; }
         public string? LastName { get; set; }
         public bool IsOnline { get; set; }
-
-        public static UserListItemDTO Create(string userId, string firstName, bool isOnline, string? lastName = null)
-        {
-            return new()
-            {
-                UserId = userId,
-                FirstName = firstName,
-                LastName = lastName,
-                IsOnline = isOnline
-            };
-        }
     }
 }

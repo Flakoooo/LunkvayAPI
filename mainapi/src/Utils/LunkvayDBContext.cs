@@ -16,6 +16,7 @@ namespace LunkvayAPI.src.Utils
         public DbSet<Friendship> Friendships { get; set; } = null!;
         public DbSet<FriendshipLabel> FriendshipLabels { get; set; } = null!;
         public DbSet<Chat> Chats { get; set; } = null!;
+        public DbSet<ChatImage> ChatImages { get; set; } = null!;
         public DbSet<ChatMember> ChatMembers { get; set; } = null!;
         public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
 
@@ -34,6 +35,8 @@ namespace LunkvayAPI.src.Utils
             {
                 entity.Property(a => a.Id).HasDefaultValueSql(GuidDefaultSQL);
                 entity.Property(u => u.UpdatedAt).HasDefaultValueSql(DateTimeDefaultSQL);
+
+                entity.HasIndex(a => a.UserId);
 
                 entity.HasOne(a => a.User).WithOne().OnDelete(DeleteBehavior.Cascade);
             });
@@ -83,6 +86,16 @@ namespace LunkvayAPI.src.Utils
 
                 entity.HasOne(c => c.Creator).WithMany().HasForeignKey(c => c.CreatorId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(c => c.LastMessage).WithOne().HasForeignKey<Chat>(c => c.LastMessageId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<ChatImage>(entity =>
+            {
+                entity.Property(ci => ci.Id).HasDefaultValueSql(GuidDefaultSQL);
+                entity.Property(ci => ci.UpdateAt).ValueGeneratedOnUpdate().HasDefaultValueSql(DateTimeDefaultSQL);
+
+                entity.HasIndex(ci => ci.ChatId);
+
+                entity.HasOne(ci => ci.Chat).WithOne().OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<ChatMember>(entity =>

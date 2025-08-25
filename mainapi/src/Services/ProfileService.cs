@@ -11,7 +11,7 @@ namespace LunkvayAPI.src.Services
         LunkvayDBContext lunkvayDBContext, 
         IUserService userService,
         IFriendsService friendsService
-        ) : IProfileService
+    ) : IProfileService
     {
         private readonly LunkvayDBContext _dBContext = lunkvayDBContext;
         private readonly IUserService _userService = userService;
@@ -19,7 +19,7 @@ namespace LunkvayAPI.src.Services
 
         public async Task<ServiceResult<UserProfileDTO>> GetUserProfileById(Guid userId)
         {
-            UserProfile? profile = await _dBContext.Profiles.Where(up => up.UserId == userId).FirstOrDefaultAsync();
+            UserProfile? profile = await _dBContext.Profiles.FirstOrDefaultAsync(up => up.UserId == userId);
             if (profile is null)
                 return ServiceResult<UserProfileDTO>.Failure("Профиль не найден");
 
@@ -30,10 +30,15 @@ namespace LunkvayAPI.src.Services
             ServiceResult<(IEnumerable<UserListItemDTO> Friends, int FriendsCount)> result 
                 = await _friendsService.GetRandomUserFriends(userId);
 
-            UserProfileDTO profileDTO = profileDTO = UserProfileDTO.Create(
-                profile.Id.ToString(), user.Result, profile.Status, profile.About,
-                result.Result.FriendsCount, result.Result.Friends
-            );
+            UserProfileDTO profileDTO = new()
+            { 
+                Id = profile.Id,
+                User = user.Result,
+                Status = profile.Status,
+                About = profile.About,
+                FriendsCount = result.Result.FriendsCount,
+                Friends = result.Result.Friends
+            };
 
             return ServiceResult<UserProfileDTO>.Success(profileDTO);
         }

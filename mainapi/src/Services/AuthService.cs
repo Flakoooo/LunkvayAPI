@@ -77,12 +77,9 @@ namespace LunkvayAPI.src.Services
                 return ServiceResult<User>.Failure("Ошибка при регистрации пользователя", HttpStatusCode.InternalServerError);
 
             if (!result.IsSuccess || result.Result is null)
-            {
-                if (result.Error is not null)
-                    return ServiceResult<User>.Failure(result.Error, result.StatusCode);
-                else
-                    return ServiceResult<User>.Failure("Ошибка при регистрации пользователя", HttpStatusCode.InternalServerError);
-            }
+                return result.Error is not null
+                    ? ServiceResult<User>.Failure(result.Error, result.StatusCode)
+                    : ServiceResult<User>.Failure("Ошибка при регистрации пользователя", HttpStatusCode.InternalServerError);
             else return ServiceResult<User>.Success(result.Result);
         }
     }
