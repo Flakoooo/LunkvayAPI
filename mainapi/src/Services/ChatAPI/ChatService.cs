@@ -23,6 +23,11 @@ namespace LunkvayAPI.src.Services.ChatAPI
 
             List<ChatDTO> chats = await _dbContext.Chats
                 .Where(c => c.Members.Any(m => m.MemberId == userId))
+                .OrderByDescending(c => c.LastMessage != null 
+                    ? c.LastMessage.CreatedAt 
+                    : c.UpdatedAt != null 
+                        ? c.UpdatedAt
+                        : c.CreatedAt)
                 .Select(c => new ChatDTO
                 {
                     Id = c.Id,
@@ -39,6 +44,7 @@ namespace LunkvayAPI.src.Services.ChatAPI
                         SystemMessageType = c.LastMessage.SystemMessageType,
                         Sender = c.LastMessage.Sender != null ? new UserDTO
                         {
+                            Id = c.LastMessage.Sender.Id,
                             UserName = c.LastMessage.Sender.UserName,
                             FirstName = c.LastMessage.Sender.Id != userId
                                 ? c.Type != ChatType.Personal

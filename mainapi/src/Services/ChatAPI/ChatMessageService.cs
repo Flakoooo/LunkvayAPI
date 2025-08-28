@@ -88,9 +88,15 @@ namespace LunkvayAPI.src.Services.ChatAPI
                 DeletedAt = null
             };
 
-
             await _dbContext.AddAsync(chatMessage);
             await _dbContext.SaveChangesAsync();
+            var chat = await _dbContext.Chats.FindAsync(chatMessageRequest.ChatId);
+            if (chat != null)
+            {
+                chat.LastMessageId = chatMessage.Id;
+                chat.UpdatedAt = DateTime.UtcNow;
+                await _dbContext.SaveChangesAsync();
+            }
 
             ChatMessageDTO chatMessageDTO = new()
             {
