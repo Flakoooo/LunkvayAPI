@@ -40,13 +40,21 @@ namespace LunkvayAPI
                       .AllowCredentials())
             );
 
+            //Auth
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IAuthService, AuthService>();
+            //Profiles
             services.AddScoped<IProfileService, ProfileService>();
+            //Avatars
             services.AddScoped<IAvatarService, AvatarService>();
+            //Friends
             services.AddScoped<IFriendsService, FriendsService>();
+            //Chats
+            services.AddScoped<IChatNotificationService, ChatNotificationService>();
             services.AddScoped<IChatService, ChatService>();
             services.AddScoped<IChatImageService, ChatImageService>();
+            services.AddScoped<IChatMemberService, ChatMemberService>();
+            services.AddScoped<IChatMessageService, ChatMessageService>();
 
             services.AddSignalR();
 

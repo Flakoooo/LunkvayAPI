@@ -14,13 +14,6 @@ namespace LunkvayAPI.src.Controllers.ChatAPI
             await Clients.Caller.SendAsync("JoinedRoom", roomId);
         }
 
-        public async Task SendToRoom(Guid roomId, Guid userId, string message)
-        {
-            await Clients.Group(roomId.ToString()).SendAsync("ReceiveMessage", userId, message);
-
-            Console.WriteLine($"Message sent to room {roomId} by user {userId}");
-        }
-
         public async Task LeaveRoom(Guid roomId)
         {
             _userRooms.TryRemove(Context.ConnectionId, out _);
