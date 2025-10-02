@@ -1,17 +1,46 @@
 services:
-  lunkvayapi:
+  lunkvay-identity:
     depends_on:
-      postgres:
+      postgres-identity:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
       - Jwt__Key=${JWT_KEY}
       - Jwt__Issuer=${JWT_ISSUER}
-
-  postgres:
+  lunkvay-friends:
+    depends_on:
+      postgres-friends:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8081
+      - Jwt__Key=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+  lunkvay-chat:
+    depends_on:
+      postgres-chat:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8082
+      - Jwt__Key=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+  postgres-identity:
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U flako -d lunkvaydb"]
+      test: ["CMD-SHELL", "pg_isready -U flako -d lunkvay-identity"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  postgres-friends:
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flako -d lunkvay-friends"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  postgres-chat:
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flako -d lunkvay-chat"]
       interval: 5s
       timeout: 5s
       retries: 10

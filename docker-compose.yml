@@ -1,25 +1,69 @@
 services:
-  lunkvayapi:
-    image: ${DOCKER_REGISTRY-}lunkvayapi
+  lunkvay-identity:
+    image: ${DOCKER_REGISTRY-}lunkvay-identity
     build:
       context: .
-      dockerfile: mainapi/Dockerfile
-    ports:
+      dockerfile: LunkvayIdentityService/Dockerfile
+    ports: 
       - "8080:8080"
     volumes:
-      - ./Media:/app/Media
+      - ./Media:/app/Media/Avatars
     environment:
-      - MEDIA_ROOT=/app/Media
-  postgres:
+      - MEDIA_ROOT=/app/Media/Avatars
+      - ConnectionStrings__DefaultConnection=Host=postgres-identity;Port=5432;Database=lunkvay-identity;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+  lunkvay-friends:
+    image: ${DOCKER_REGISTRY-}lunkvay-friends
+    build:
+      context: .
+      dockerfile: LunkvayFriendsService/Dockerfile
+    ports: 
+      - "8081:8081"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres-friends;Port=5432;Database=lunkvay-friends;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+  lunkvay-chat:
+    image: ${DOCKER_REGISTRY-}lunkvay-chat
+    build:
+      context: .
+      dockerfile: LunkvayChatService/Dockerfile
+    ports: 
+      - "8082:8082"
+    volumes:
+      - ./Media:/app/Media/ChatImages
+    environment:
+      - MEDIA_ROOT=/app/Media/ChatImages
+      - ConnectionStrings__DefaultConnection=Host=postgres-chat;Port=5432;Database=lunkvay-chat;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+  postgres-identity:
     image: postgres:latest
     environment:
-      POSTGRES_USER: flako
-      POSTGRES_PASSWORD: 12345
-      POSTGRES_DB: lunkvaydb
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: lunkvay-identity
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres-identity_data:/var/lib/postgresql/data
+  postgres-friends:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: lunkvay-friends
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-friends_data:/var/lib/postgresql/data
+  postgres-chat:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: lunkvay-chat
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-chat_data:/var/lib/postgresql/data
 
 volumes:
-  postgres_data:
+  postgres-identity_data:
+  postgres-friends_data:
+  postgres-chat_data:
