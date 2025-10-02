@@ -1,10 +1,14 @@
-using LunkvayAPI.src.Controllers.ChatAPI;
-using LunkvayAPI.src.Models.Utils;
-using LunkvayAPI.src.Services;
-using LunkvayAPI.src.Services.ChatAPI;
-using LunkvayAPI.src.Services.ChatAPI.Interfaces;
-using LunkvayAPI.src.Services.Interfaces;
-using LunkvayAPI.src.Utils;
+using LunkvayAPI.Auth.Models.Utils;
+using LunkvayAPI.Auth.Services;
+using LunkvayAPI.Avatars.Services;
+using LunkvayAPI.Chats.Controllers;
+using LunkvayAPI.Chats.Services;
+using LunkvayAPI.Chats.Services.Interfaces;
+using LunkvayAPI.Common.Filters;
+using LunkvayAPI.Data;
+using LunkvayAPI.Friends.Services;
+using LunkvayAPI.Profiles.Services;
+using LunkvayAPI.Users.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace LunkvayAPI
