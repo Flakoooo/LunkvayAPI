@@ -9,7 +9,11 @@ using LunkvayAPI.Data;
 using LunkvayAPI.Friends.Services;
 using LunkvayAPI.Profiles.Services;
 using LunkvayAPI.Users.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
+using System.Text;
 
 namespace LunkvayAPI
 {
@@ -19,7 +23,7 @@ namespace LunkvayAPI
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            ConfigureServices(builder.Services, builder.Configuration);
+            ConfigureServices(builder);
 
             var app = builder.Build();
 
@@ -29,13 +33,39 @@ namespace LunkvayAPI
             app.Run();
         }
 
-        private static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+        private static void ConfigureServices(WebApplicationBuilder builder)
         {
+            IServiceCollection services = builder.Services;
+            ConfigurationManager configuration = builder.Configuration;
+
             services.AddDbContext<LunkvayDBContext>(options =>
                 options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"))
             );
 
             services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
+
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = configuration["Jwt:Issuer"],
+                        ValidAudience = configuration["Jwt:Audience"],
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(configuration["Jwt:Key"] 
+                            ?? throw new ArgumentException("Отсуствует JWT ключ")
+                            )
+                        )
+                    };
+                    options.SaveToken = true;
+                    options.MapInboundClaims = false;
+                });
+
+            services.AddAuthorization();
 
             services.AddCors(options => options.AddPolicy("AllowAll", policy =>
                 policy.AllowAnyHeader()
@@ -63,10 +93,15 @@ namespace LunkvayAPI
             services.AddSignalR();
 
             services.AddControllers(options => options.Filters.Add<GlobalExceptionFilter>());
+
+            services.AddOpenApi("v1");
         }
 
         private static void ConfigureMiddleware(WebApplication app)
         {
+            app.UseAuthentication();
+            app.UseAuthorization();
+
             app.UseCors("AllowAll");
             app.MapHub<ChatHub>("/chatHub");
             app.MapControllers();
@@ -91,6 +126,9 @@ namespace LunkvayAPI
                     logger.LogCritical(ex, "FATAL: Не удалось инициализировать тестовые данные");
                     Environment.Exit(1);
                 }
+
+                app.MapOpenApi();
+                app.MapScalarApiReference();
             }
         }
     }
