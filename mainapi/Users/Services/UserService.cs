@@ -65,18 +65,23 @@ namespace LunkvayAPI.Users.Services
             return ServiceResult<IEnumerable<UserDTO>>.Success(result);
         }
 
-        public async Task<ServiceResult<User>> CreateUser(User user)
+        public async Task<ServiceResult<User>> CreateUser(
+            string userName, string email, string password,
+            string firstName, string lastName
+        )
         {
-            if (await _dbContext.Users.AnyAsync(u => u.Email == user.Email))
+            if (await _dbContext.Users.AnyAsync(u => u.Email == email))
                 return ServiceResult<User>.Failure("Пользователь с данной почтой уже существует", HttpStatusCode.Conflict);
 
-            if (await _dbContext.Users.AnyAsync(u => u.UserName == user.UserName))
+            if (await _dbContext.Users.AnyAsync(u => u.UserName == userName))
                 return ServiceResult<User>.Failure("Пользователь с данным именем пользователя уже существует", HttpStatusCode.Conflict);
 
-            EntityEntry<User> result = await _dbContext.Users.AddAsync(user);
+            User user = User.Create(userName, email, password, firstName, lastName);
+
+            await _dbContext.Users.AddAsync(user);
             await _dbContext.SaveChangesAsync();
 
-            return ServiceResult<User>.Success(result.Entity);
+            return ServiceResult<User>.Success(user);
         }
     }
 }

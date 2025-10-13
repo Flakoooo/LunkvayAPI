@@ -9,6 +9,9 @@ namespace LunkvayAPI.Users.Services
         Task<ServiceResult<UserDTO>> GetUserById(Guid userId);
         Task<ServiceResult<User?>> GetUserByEmail(string email);
         Task<ServiceResult<IEnumerable<UserDTO>>> GetUsers();
-        Task<ServiceResult<User>> CreateUser(User user);
+        Task<ServiceResult<User>> CreateUser(
+            string userName, string email, string password,
+            string firstName = "", string lastName = ""
+        );
     }
 }

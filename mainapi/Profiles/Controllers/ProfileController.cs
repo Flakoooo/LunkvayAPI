@@ -1,5 +1,7 @@
 ﻿using LunkvayAPI.Common.Results;
+using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Profiles.Models.DTO;
+using LunkvayAPI.Profiles.Models.Requests;
 using LunkvayAPI.Profiles.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -19,15 +21,9 @@ namespace LunkvayAPI.Profiles.Controllers
         private readonly ILogger<ProfileController> _logger = logger;
 
         [HttpGet("current-user-profile")]
-        public async Task<IActionResult> GetUserProfile()
+        public async Task<IActionResult> GetProfile()
         {
-            string? userIdClaim = User.FindFirst("id")?.Value;
-
-            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out Guid userId))
-            {
-                _logger.LogWarning("В токене отсутствует валидный идентификатор пользователя (claim 'id')");
-                return Unauthorized("Не удалось идентифицировать пользователя");
-            }
+            Guid userId = (Guid)HttpContext.Items["UserId"]!;
 
             _logger.LogInformation("Запрос профиля пользователя {UserId}", userId);
             ServiceResult<ProfileDTO> result = await _profileService.GetUserProfileById(userId);
@@ -43,7 +39,7 @@ namespace LunkvayAPI.Profiles.Controllers
 
         [AllowAnonymous]
         [HttpGet("{userId}")]
-        public async Task<IActionResult> GetUserProfileByUserId(Guid userId)
+        public async Task<IActionResult> GetProfileByUserId(Guid userId)
         {
             _logger.LogInformation("Запрос профиля пользователя {UserId}", userId);
             ServiceResult<ProfileDTO> result = await _profileService.GetUserProfileById(userId);
@@ -55,6 +51,16 @@ namespace LunkvayAPI.Profiles.Controllers
 
             _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
             return BadRequest(result.Error);
+        }
+
+        [HttpPatch("update")]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+        {
+            Guid userId = (Guid)HttpContext.Items["UserId"]!;
+
+            _logger.LogInformation("Обновление профиля пользователя {UserId}", userId);
+
+            return Ok();
         }
     }
 }

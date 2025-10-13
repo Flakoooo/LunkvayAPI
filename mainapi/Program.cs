@@ -92,7 +92,11 @@ namespace LunkvayAPI
 
             services.AddSignalR();
 
-            services.AddControllers(options => options.Filters.Add<GlobalExceptionFilter>());
+            services.AddControllers(options =>
+            {
+                options.Filters.Add<AuthorizationFilter>();
+                options.Filters.Add<GlobalExceptionFilter>();
+            });
 
             services.AddOpenApi("v1");
         }
