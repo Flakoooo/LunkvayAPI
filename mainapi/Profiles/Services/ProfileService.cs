@@ -1,8 +1,8 @@
 ﻿using LunkvayAPI.Common.DTO;
 using LunkvayAPI.Common.Results;
-using LunkvayAPI.Common.Services;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
+using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Friends.Services;
 using LunkvayAPI.Profiles.Models.DTO;
 using LunkvayAPI.Profiles.Models.Requests;
@@ -15,28 +15,27 @@ namespace LunkvayAPI.Profiles.Services
         LunkvayDBContext lunkvayDBContext, 
         IUserService userService,
         IFriendsService friendsService
-    ) : BaseService, IProfileService
+    ) : IProfileService
     {
         private readonly LunkvayDBContext _dBContext = lunkvayDBContext;
         private readonly IUserService _userService = userService;
         private readonly IFriendsService _friendsService = friendsService;
 
-
         public async Task<ServiceResult<ProfileDTO>> GetUserProfileById(Guid userId)
         {
-            ServiceResult<ProfileDTO>? userIdError = ValidateId<ProfileDTO>(userId, "userId");
-            if (userIdError is not null) return userIdError;
+            if (userId == Guid.Empty)
+                return ServiceResult<ProfileDTO>.Failure(ErrorCode.UserIdIsNull.GetDescription());
 
             Profile? profile = await _dBContext.Profiles
                 .AsNoTracking()
                 .FirstOrDefaultAsync(up => up.UserId == userId);
 
             if (profile is null)
-                return ServiceResult<ProfileDTO>.Failure("Профиль не найден");
+                return ServiceResult<ProfileDTO>.Failure(ErrorCode.ProfileNotFound.GetDescription());
 
             ServiceResult<UserDTO> user = await _userService.GetUserById(userId);
             if (!user.IsSuccess || user.Result is null)
-                return ServiceResult<ProfileDTO>.Failure("Найден профиль без пользователя");
+                return ServiceResult<ProfileDTO>.Failure(ErrorCode.ProfileWithoutUser.GetDescription());
 
             ServiceResult<(IEnumerable<UserListItemDTO> Friends, int FriendsCount)> result 
                 = await _friendsService.GetRandomUserFriends(userId);
@@ -56,8 +55,8 @@ namespace LunkvayAPI.Profiles.Services
 
         public async Task<ServiceResult<Profile>> CreateProfile(Guid userId)
         {
-            ServiceResult<Profile>? userIdError = ValidateId<Profile>(userId, "userId");
-            if (userIdError is not null) return userIdError;
+            if (userId == Guid.Empty)
+                return ServiceResult<Profile>.Failure(ErrorCode.UserIdIsNull.GetDescription());
 
             Profile profile = new() { UserId = userId };
 
@@ -69,12 +68,12 @@ namespace LunkvayAPI.Profiles.Services
 
         public async Task<ServiceResult<ProfileDTO>> UpdateProfile(Guid userId, UpdateProfileRequest request)
         {
-            ServiceResult<ProfileDTO>? userIdError = ValidateId<ProfileDTO>(userId, "userId");
-            if (userIdError is not null) return userIdError;
+            if (userId == Guid.Empty)
+                return ServiceResult<ProfileDTO>.Failure(ErrorCode.UserIdIsNull.GetDescription());
 
             Profile? profile = await _dBContext.Profiles.FirstOrDefaultAsync(up => up.UserId == userId);
             if (profile is null)
-                return ServiceResult<ProfileDTO>.Failure("Профиль не найден");
+                return ServiceResult<ProfileDTO>.Failure(ErrorCode.ProfileNotFound.GetDescription());
 
             bool hasChanges = false;
 
@@ -89,8 +88,7 @@ namespace LunkvayAPI.Profiles.Services
                 hasChanges = true;
             }
 
-            if (hasChanges)
-                await _dBContext.SaveChangesAsync();
+            if (hasChanges) await _dBContext.SaveChangesAsync();
 
             return await GetUserProfileById(userId);
         }

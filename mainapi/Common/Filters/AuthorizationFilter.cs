@@ -8,7 +8,7 @@ namespace LunkvayAPI.Common.Filters
     {
         private readonly ILogger<AuthorizationFilter> _logger = logger;
 
-        public void OnActionExecuted(ActionExecutedContext context)
+        public void OnActionExecuting(ActionExecutingContext context)
         {
             if (context.ActionDescriptor.EndpointMetadata.Any(em => em is AllowAnonymousAttribute))
                 return;
@@ -26,6 +26,7 @@ namespace LunkvayAPI.Common.Filters
 
             context.HttpContext.Items["UserId"] = userId;
         }
-        public void OnActionExecuting(ActionExecutingContext context) { }
+
+        public void OnActionExecuted(ActionExecutedContext context) { }
     }
 }

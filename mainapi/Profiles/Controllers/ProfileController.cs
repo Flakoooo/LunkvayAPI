@@ -1,9 +1,7 @@
 ﻿using LunkvayAPI.Common.Results;
-using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Profiles.Models.DTO;
 using LunkvayAPI.Profiles.Models.Requests;
 using LunkvayAPI.Profiles.Services;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -59,8 +57,15 @@ namespace LunkvayAPI.Profiles.Controllers
             Guid userId = (Guid)HttpContext.Items["UserId"]!;
 
             _logger.LogInformation("Обновление профиля пользователя {UserId}", userId);
+            ServiceResult<ProfileDTO> result = await _profileService.UpdateProfile(userId, request);
+            if (result.IsSuccess)
+            {
+                _logger.LogDebug("Успешное обновление профиля для пользователя {UserId}", userId);
+                return Ok(result.Result);
+            }
 
-            return Ok();
+            _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
+            return BadRequest(result.Error);
         }
     }
 }

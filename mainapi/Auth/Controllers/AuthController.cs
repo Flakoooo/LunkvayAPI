@@ -1,6 +1,7 @@
 ﻿using LunkvayAPI.Auth.Services;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Data.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using LoginRequest = LunkvayAPI.Auth.Models.Requests.LoginRequest;
 using RegisterRequest = LunkvayAPI.Auth.Models.Requests.RegisterRequest;
@@ -8,6 +9,7 @@ using RegisterRequest = LunkvayAPI.Auth.Models.Requests.RegisterRequest;
 namespace LunkvayAPI.Auth.Controllers
 {
     [ApiController]
+    [AllowAnonymous]
     [Route("api/v1/[controller]")]
     public class AuthController(IAuthService authService, ILogger<AuthController> logger) : Controller
     {

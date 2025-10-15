@@ -1,6 +1,8 @@
-﻿using LunkvayAPI.Common.Results;
+﻿using LunkvayAPI.Auth.Services;
+using LunkvayAPI.Common.Results;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
+using LunkvayAPI.Data.Enums;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 
@@ -22,12 +24,12 @@ namespace LunkvayAPI.Avatars.Services
             _dbContext = lunkvayDBContext;
 
             string basePath = configuration["FileStorage:BasePath"] ??
-                throw new FileNotFoundException("Путь к изображениям пользователя не указан или отсуствует файл конфигурации");
+                throw new FileNotFoundException(ErrorCode.UsersAvatarsNotFound.GetDescription());
             string avatars = configuration["FileStorage:Avatars"] ??
-                throw new FileNotFoundException("Путь к изображениям пользователя не указан или отсуствует файл конфигурации");
+                throw new FileNotFoundException(ErrorCode.UsersAvatarsNotFound.GetDescription());
             _avatarsPath = Path.Combine(basePath, avatars);
 
-            if (_defaultUserImageName is null or "")
+            if (string.IsNullOrEmpty(_defaultUserImageName))
             {
                 string nameOfDefaultImage = nameof(_defaultUserImageName);
                 throw new ArgumentNullException(nameOfDefaultImage);
@@ -36,45 +38,69 @@ namespace LunkvayAPI.Avatars.Services
             Directory.CreateDirectory(_avatarsPath);
         }
 
-        public async Task<ServiceResult<byte[]>> GetUserAvatarById(Guid userId)
+        public async Task<ServiceResult<byte[]>> GetUserAvatarByUserId(Guid userId)
         {
-            if (_avatarsPath is null)
+            if (userId == Guid.Empty)
+                return ServiceResult<byte[]>.Failure(ErrorCode.UserIdIsNull.GetDescription());
+
+            if (string.IsNullOrEmpty(_avatarsPath))
             {
                 _logger.LogCritical("Путь к аватарам не задан!");
-                return ServiceResult<byte[]>.Failure("Ошибка сервера", HttpStatusCode.InternalServerError);
+                return ServiceResult<byte[]>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError
+                );
             }
 
-            _logger.LogDebug("Поиск аватара для {UserId}", userId);
-            Avatar? avatar = await _dbContext.Avatars.FirstOrDefaultAsync(a => a.UserId == userId);
+            string? fileName = await _dbContext.Avatars
+                .AsNoTracking()
+                .Where(a => a.UserId == userId)
+                .Select(a => a.FileName)
+                .FirstOrDefaultAsync();
 
-            string filePath = avatar is null
-                ? Path.Combine(_avatarsPath, _defaultUserImageName) 
-                : Path.Combine(_avatarsPath, avatar.FileName);
+            string filePath = Path.Combine(_avatarsPath, fileName ?? _defaultUserImageName);
 
-            if (!File.Exists(filePath))
+            if (File.Exists(filePath))
             {
-                _logger.LogWarning("Файл не найден: {FilePath}", filePath);
-
-                if (avatar is not null)
+                try
                 {
-                    string defaultFilePath = Path.Combine(_avatarsPath, _defaultUserImageName);
-                    if (!File.Exists(defaultFilePath))
-                    {
-                        _logger.LogCritical("Дефолтный аватар {DefaultImage} отсутствует!", _defaultUserImageName);
-                        return ServiceResult<byte[]>.Failure("Ошибка сервера", HttpStatusCode.InternalServerError);
-                    }
-                    filePath = defaultFilePath;
+                    byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
+                    return fileBytes.Length > 0
+                        ? ServiceResult<byte[]>.Success(fileBytes)
+                        : ServiceResult<byte[]>.Failure("Аватар поврежден", HttpStatusCode.NotFound);
                 }
-                else return ServiceResult<byte[]>.Failure("Аватар не найден", HttpStatusCode.NotFound);
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Ошибка чтения файла {FilePath}", filePath);
+                }
+            }
+            // === Если аватар не найден ===
+            _logger.LogWarning("Файл не найден или недоступен: {FilePath}", filePath);
+
+            // Это был поиск дефолтного? Ну что, фатальная ошибка
+            if (fileName is null)
+            {
+                _logger.LogCritical("Дефолтный аватар {DefaultImage} отсутствует!", _defaultUserImageName);
+                return ServiceResult<byte[]>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError
+                );
             }
 
-            byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
-            if (fileBytes.Length == 0)
+            // Это был поиск конкретного? Выдать дефолт
+            string defaultPath = Path.Combine(_avatarsPath, _defaultUserImageName);
+            if (File.Exists(defaultPath))
             {
-                _logger.LogCritical("Аватар имеет пустое значение");
-                return ServiceResult<byte[]>.Failure("Аватар не найден", HttpStatusCode.NotFound);
+                try
+                {
+                    byte[] fileBytes = await File.ReadAllBytesAsync(defaultPath);
+                    return ServiceResult<byte[]>.Success(fileBytes);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Ошибка чтения дефолтного аватара {FilePath}", defaultPath);
+                }
             }
-            return ServiceResult<byte[]>.Success(fileBytes);
+
+            return ServiceResult<byte[]>.Failure("Аватар не найден", HttpStatusCode.NotFound);
         }
     }
 }

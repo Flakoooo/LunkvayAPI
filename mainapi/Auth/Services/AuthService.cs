@@ -2,6 +2,7 @@
 using LunkvayAPI.Auth.Models.Utils;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Data.Entities;
+using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Profiles.Services;
 using LunkvayAPI.Users.Services;
 using Microsoft.Extensions.Options;
@@ -16,23 +17,23 @@ namespace LunkvayAPI.Auth.Services
     public class AuthService : IAuthService
     {
         private readonly JwtSettings _jwtSettings;
+        private readonly ILogger<AuthService> _logger;
         private readonly IUserService _userService;
         private readonly IProfileService _profileService;
-        private readonly ILogger<AuthService> _logger;
-
-        private readonly string jwtKeyMissing = "JWT ключ не найден!";
 
 
         public AuthService(
-            IOptions<JwtSettings> jwtOptions, IUserService userService, ILogger<AuthService> logger
+            IOptions<JwtSettings> jwtOptions, ILogger<AuthService> logger,
+            IUserService userService, IProfileService profileService
         )
         {
-            _userService = userService;
             _jwtSettings = jwtOptions.Value;
             _logger = logger;
+            _userService = userService;
+            _profileService = profileService;
 
             if (string.IsNullOrEmpty(_jwtSettings.Key))
-                throw new ArgumentNullException(jwtKeyMissing);
+                throw new ArgumentNullException(ErrorCode.JWTKeyMissing.GetDescription());
         }
 
         public async Task<ServiceResult<string>> Login(LoginRequest loginRequest)
@@ -43,7 +44,9 @@ namespace LunkvayAPI.Auth.Services
             if (!result.IsSuccess || result.Result is null || 
                 !BCrypt.Net.BCrypt.Verify(loginRequest.Password, result.Result.PasswordHash)
             ) 
-                return ServiceResult<string>.Failure("Неверный email или пароль", HttpStatusCode.UnprocessableContent);
+                return ServiceResult<string>.Failure(
+                    ErrorCode.IncorrectLoginData.GetDescription(), HttpStatusCode.UnprocessableContent
+                );
 
             User user = result.Result;
             List<Claim> claims =
@@ -56,7 +59,10 @@ namespace LunkvayAPI.Auth.Services
             ];
 
             if (string.IsNullOrEmpty(_jwtSettings.Key))
-                return ServiceResult<string>.Failure(jwtKeyMissing, HttpStatusCode.InternalServerError);
+                return ServiceResult<string>.Failure(
+                    ErrorCode.JWTKeyMissing.GetDescription(), 
+                    HttpStatusCode.InternalServerError
+                );
 
             SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(_jwtSettings.Key));
 
@@ -77,19 +83,19 @@ namespace LunkvayAPI.Auth.Services
                 registerRequest.UserName, registerRequest.Email, registerRequest.Password,
                 registerRequest.FirstName ?? "", registerRequest.LastName ?? ""
             );
-
             if (!userResult.IsSuccess || userResult.Result is null)
                 return userResult.Error is not null
                     ? ServiceResult<User>.Failure(userResult.Error, userResult.StatusCode)
-                    : ServiceResult<User>.Failure("Ошибка при регистрации пользователя", HttpStatusCode.InternalServerError);
+                    : ServiceResult<User>.Failure(
+                        ErrorCode.RegisterFailed.GetDescription(), HttpStatusCode.InternalServerError
+                    );
 
             ServiceResult<Profile> profileResult = await _profileService.CreateProfile(userResult.Result.Id);
-
             if (!profileResult.IsSuccess || profileResult.Result is null)
                 return userResult.Error is not null
                     ? ServiceResult<User>.Failure(userResult.Error, userResult.StatusCode)
                     : ServiceResult<User>.Failure(
-                        "Пользователь зарегистрирован, но произошла непредвиденная ошибка при создании профиля пользователя", 
+                        ErrorCode.ProfileCreateFailed.GetDescription(),
                         HttpStatusCode.InternalServerError
                     );
 

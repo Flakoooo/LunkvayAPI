@@ -21,7 +21,11 @@ namespace LunkvayAPI.Friends.Services
                 DateTime.UtcNow, userId, page, pageSize
             );
 
-            List<Guid> friendIds = await _dbContext.Friendships
+            if (userId == Guid.Empty)
+                return ServiceResult<IEnumerable<UserListItemDTO>>.Failure(ErrorCode.UserIdIsNull.GetDescription());
+
+            List <Guid> friendIds = await _dbContext.Friendships
+                .AsNoTracking()
                 .Where(f => f.Status == FriendshipStatus.Accepted && (f.UserId1 == userId || f.UserId2 == userId))
                 .Select(f => f.UserId1 == userId ? f.UserId2 : f.UserId1)
                 .Skip((page - 1) * pageSize)
@@ -29,6 +33,7 @@ namespace LunkvayAPI.Friends.Services
                 .ToListAsync();
 
             List<UserListItemDTO> friends = await _dbContext.Users
+                .AsNoTracking()
                 .Where(u => friendIds.Contains(u.Id) && !u.IsDeleted)
                 .Select(u => new UserListItemDTO
                 {
@@ -47,7 +52,11 @@ namespace LunkvayAPI.Friends.Services
         {
             _logger.LogInformation("({Date}) Запрос друзей пользователя {Id} для профиля", DateTime.UtcNow, userId);
 
+            if (userId == Guid.Empty)
+                return ServiceResult<(IEnumerable<UserListItemDTO> Friends, int FriendsCount)>.Failure(ErrorCode.UserIdIsNull.GetDescription());
+
             List<Guid> friendIds = await _dbContext.Friendships
+                .AsNoTracking()
                 .Where(f => f.Status == FriendshipStatus.Accepted && (f.UserId1 == userId || f.UserId2 == userId))
                 .Select(f => f.UserId1 == userId ? f.UserId2 : f.UserId1)
                 .ToListAsync();
@@ -56,6 +65,7 @@ namespace LunkvayAPI.Friends.Services
             if (friendIds.Count <= count)
             {
                 friends = await _dbContext.Users
+                    .AsNoTracking()
                     .Where(u => friendIds.Contains(u.Id) && !u.IsDeleted)
                     .Select(u => new UserListItemDTO 
                     { 
@@ -72,6 +82,7 @@ namespace LunkvayAPI.Friends.Services
                 List<Guid> randomFriendIds = [.. friendIds.OrderBy(x => random.Next()).Take(count)];
 
                 friends = await _dbContext.Users
+                    .AsNoTracking()
                     .Where(u => randomFriendIds.Contains(u.Id) && !u.IsDeleted)
                     .Select(u => new UserListItemDTO
                     {
