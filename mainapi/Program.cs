@@ -123,22 +123,21 @@ namespace LunkvayAPI
 
             await db.Database.MigrateAsync();
 
-            if (app.Environment.IsDevelopment())
-            {
-                try
-                {
-                    await SeedData.Initialize(db);
-                }
-                catch (Exception ex)
-                {
-                    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-                    logger.LogCritical(ex, "FATAL: Ќе удалось инициализировать тестовые данные");
-                    Environment.Exit(1);
-                }
+            //if (app.Environment.IsDevelopment())
 
-                app.MapOpenApi();
-                app.MapScalarApiReference();
+            try
+            {
+                await SeedData.Initialize(db);
             }
+            catch (Exception ex)
+            {
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+                logger.LogCritical(ex, "FATAL: Ќе удалось инициализировать тестовые данные");
+                Environment.Exit(1);
+            }
+
+            app.MapOpenApi();
+            app.MapScalarApiReference();
         }
     }
 }
