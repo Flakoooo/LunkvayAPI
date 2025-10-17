@@ -6,7 +6,7 @@ services:
     volumes:
       - ./Media:/app/Media
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
     environment:
       - MEDIA_ROOT=/app/Media
@@ -14,21 +14,27 @@ services:
       - ASPNETCORE_HTTP_PORTS=8080
       - Jwt__Key=${JWT_KEY}
       - Jwt__Issuer=${JWT_ISSUER}
-  postgres:
-    image: postgres:latest
+      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=${DB_NAME};User=${DB_USER};Password=${DB_PASSWORD}
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
     environment:
-      POSTGRES_USER: flako
-      POSTGRES_PASSWORD: 12345
-      POSTGRES_DB: lunkvaydb
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U flako -d lunkvaydb"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DB_USER}", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
+  mysql_data:
