@@ -6,7 +6,7 @@ namespace LunkvayAPI.Data.Entities
     public class Avatar
     {
         [Column("id")]
-        public Guid Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
 
         [Column("user_id")]
         public required Guid UserId { get; set; }

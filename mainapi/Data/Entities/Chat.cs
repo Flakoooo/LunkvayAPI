@@ -8,7 +8,7 @@ namespace LunkvayAPI.Data.Entities
     public class Chat
     {
         [Column("id")]
-        public Guid Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
 
         [Column("creator_id")]
         public Guid? CreatorId { get; set; }
@@ -17,7 +17,7 @@ namespace LunkvayAPI.Data.Entities
         public Guid? LastMessageId { get; set; }
 
         [Column("name")]
-        public string? Name { get; set; }
+        public string? Name { get; set; } = null;
 
         [Column("type")]
         [Required]
@@ -27,7 +27,7 @@ namespace LunkvayAPI.Data.Entities
         public bool IsDeleted { get; set; }
 
         [Column("created_at")]
-        public DateTime CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("updated_at")]
         public DateTime? UpdatedAt { get; set; }

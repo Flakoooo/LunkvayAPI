@@ -8,7 +8,7 @@ namespace LunkvayAPI.Data.Entities
     public class ChatMessage
     {
         [Column("id")]
-        public Guid Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
 
         [Column("chat_id")]
         [Required]
@@ -25,16 +25,16 @@ namespace LunkvayAPI.Data.Entities
         public required string Message { get; set; }
 
         [Column("is_edited")]
-        public bool IsEdited { get; set; }
+        public bool IsEdited { get; set; } = false;
 
         [Column("is_pinned")]
-        public bool IsPinned { get; set; }
+        public bool IsPinned { get; set; } = false;
 
         [Column("is_deleted")]
-        public bool IsDeleted { get; set; }
+        public bool IsDeleted { get; set; } = false;
 
         [Column("created_at")]
-        public DateTime CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("updated_at")]
         public DateTime? UpdatedAt { get; set; }

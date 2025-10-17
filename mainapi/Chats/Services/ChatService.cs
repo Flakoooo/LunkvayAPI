@@ -7,6 +7,7 @@ using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
 using Microsoft.EntityFrameworkCore;
+using MySqlConnector;
 
 namespace LunkvayAPI.Chats.Services
 {
@@ -22,51 +23,63 @@ namespace LunkvayAPI.Chats.Services
         {
             _logger.LogInformation("({Date}) Запрос списка чатов для {UserId}", DateTime.Now, userId);
 
-            List<ChatDTO> chats = await _dbContext.Chats
+            var chatQuery = _dbContext.Chats
                 .Where(c => c.Members.Any(m => m.MemberId == userId))
-                .OrderByDescending(c => c.LastMessage != null 
-                    ? c.LastMessage.CreatedAt 
-                    : c.UpdatedAt != null 
-                        ? c.UpdatedAt
-                        : c.CreatedAt)
-                .Select(c => new ChatDTO
+                .Include(c => c.Members)
+                    .ThenInclude(m => m.Member)
+                .Include(c => c.LastMessage)
+                .AsQueryable();
+
+            var chats = await chatQuery.ToListAsync();
+
+            foreach (var chat in chats.Where(c => c.LastMessage != null))
+            {
+                await _dbContext.Entry(chat.LastMessage!)
+                    .Reference(m => m.Sender)
+                    .LoadAsync();
+            }
+
+            var sortedChats = chats
+                .OrderByDescending(c => c.LastMessage != null
+                    ? c.LastMessage.CreatedAt
+                    : c.UpdatedAt ?? c.CreatedAt)
+                .ToList();
+
+            List<ChatDTO> chatDtos = [.. sortedChats.Select(c => new ChatDTO
+            {
+                Id = c.Id,
+                Name = c.Type == ChatType.Personal
+                    ? c.Members
+                        .Where(m => m.MemberId != userId)
+                        .Select(m => m.Member?.FullName)
+                        .FirstOrDefault()
+                    : c.Name,
+                LastMessage = c.LastMessage != null ? new ChatMessageDTO
                 {
-                    Id = c.Id,
-                    Name = c.Type == ChatType.Personal
-                        ? c.Members
-                            .Where(m => m.MemberId != userId)
-                            .Select(m => m.Member != null ? m.Member.FullName : null)
-                            .FirstOrDefault()
-                        : c.Name,
-                    LastMessage = c.LastMessage != null ? new ChatMessageDTO
+                    Message = c.LastMessage.Message,
+                    CreatedAt = c.LastMessage.CreatedAt,
+                    SystemMessageType = c.LastMessage.SystemMessageType,
+                    Sender = c.LastMessage.Sender != null ? new UserDTO
                     {
-                        Message = c.LastMessage.Message,
-                        CreatedAt = c.LastMessage.CreatedAt,
-                        SystemMessageType = c.LastMessage.SystemMessageType,
-                        Sender = c.LastMessage.Sender != null ? new UserDTO
-                        {
-                            Id = c.LastMessage.Sender.Id,
-                            UserName = c.LastMessage.Sender.UserName,
-                            FirstName = c.LastMessage.Sender.Id != userId
-                                ? c.Type != ChatType.Personal
-                                    ? c.LastMessage.Sender.FirstName
-                                    : null
-                                : "Вы",
-                            LastName = c.Type != ChatType.Personal
-                                ? c.LastMessage.Sender.LastName != null
-                                    ? c.LastMessage.Sender.LastName.Length > 0
-                                        ? c.LastMessage.Sender.LastName[0].ToString()
-                                        : null
-                                    : null
+                        Id = c.LastMessage.Sender.Id,
+                        UserName = c.LastMessage.Sender.UserName,
+                        FirstName = c.LastMessage.Sender.Id != userId
+                            ? c.Type != ChatType.Personal
+                                ? c.LastMessage.Sender.FirstName
                                 : null
-                        } : null
+                            : "Вы",
+                        LastName = c.Type != ChatType.Personal
+                            ? !string.IsNullOrEmpty(c.LastMessage.Sender.LastName)
+                                ? c.LastMessage.Sender.LastName[0].ToString()
+                                : null
+                            : null
                     } : null
-                })
-                .ToListAsync();
+                } : null
+            })];
 
-            _logger.LogInformation("({Date}) Получено {Count} чатов", DateTime.UtcNow, chats.Count);
+            _logger.LogInformation("({Date}) Получено {Count} чатов", DateTime.UtcNow, chatDtos.Count);
 
-            return ServiceResult<IEnumerable<ChatDTO>>.Success(chats);
+            return ServiceResult<IEnumerable<ChatDTO>>.Success(chatDtos);
         }
 
         public async Task<ServiceResult<ChatDTO>> CreateRoom(ChatRequest chatRequest, Guid? creatorId)

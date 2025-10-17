@@ -19,6 +19,8 @@ namespace LunkvayAPI
 {
     public class Program
     {
+        private const string APPLICATION_CONNECTION_NAME = "DefaultConnection";
+
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
@@ -39,7 +41,10 @@ namespace LunkvayAPI
             ConfigurationManager configuration = builder.Configuration;
 
             services.AddDbContext<LunkvayDBContext>(options =>
-                options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"))
+                options.UseMySql(
+                    configuration.GetConnectionString(APPLICATION_CONNECTION_NAME),
+                    new MySqlServerVersion(new Version(8, 0))
+                )
             );
 
             services.Configure<JwtSettings>(configuration.GetSection("Jwt"));

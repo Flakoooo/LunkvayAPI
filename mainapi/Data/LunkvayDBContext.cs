@@ -5,9 +5,6 @@ namespace LunkvayAPI.Data
 {
     public class LunkvayDBContext(DbContextOptions<LunkvayDBContext> options) : DbContext(options)
     {
-        private readonly string GuidDefaultSQL = "gen_random_uuid()";
-        private readonly string DateTimeDefaultSQL = "TIMEZONE('UTC', NOW())";
-
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Avatar> Avatars { get; set; } = null!;
         public DbSet<Profile> Profiles { get; set; } = null!;
@@ -22,17 +19,17 @@ namespace LunkvayAPI.Data
         {
             modelBuilder.Entity<User>(entity =>
             {
-                entity.Property(u => u.Id).HasDefaultValueSql(GuidDefaultSQL);
-                entity.Property(u => u.CreatedAt).HasDefaultValueSql(DateTimeDefaultSQL);
-                entity.Property(u => u.LastLogin).HasDefaultValueSql(DateTimeDefaultSQL);
+                entity.Property(e => e.Id).HasColumnType("char(36)").IsRequired();
+                entity.Property(u => u.CreatedAt).IsRequired();
+                entity.Property(u => u.LastLogin).IsRequired();
 
                 entity.HasIndex(u => u.IsDeleted);
             });
 
             modelBuilder.Entity<Avatar>(entity =>
             {
-                entity.Property(a => a.Id).HasDefaultValueSql(GuidDefaultSQL);
-                entity.Property(u => u.UpdatedAt).HasDefaultValueSql(DateTimeDefaultSQL);
+                entity.Property(a => a.Id).HasColumnType("char(36)").IsRequired();
+                entity.Property(u => u.UpdatedAt).IsRequired();
 
                 entity.HasIndex(a => a.UserId);
 
@@ -41,16 +38,15 @@ namespace LunkvayAPI.Data
 
             modelBuilder.Entity<Profile>(entity =>
             {
-                entity.Property(up => up.Id).HasDefaultValueSql(GuidDefaultSQL);
+                entity.Property(up => up.Id).HasColumnType("char(36)").IsRequired();
 
                 entity.HasOne(up => up.User).WithOne().OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Friendship>(entity =>
             {
-                entity.Property(f => f.Id).HasDefaultValueSql(GuidDefaultSQL);
-                entity.Property(f => f.CreatedAt).HasDefaultValueSql(DateTimeDefaultSQL);
-                entity.Property(f => f.UpdatedAt).ValueGeneratedOnUpdate().HasDefaultValueSql(DateTimeDefaultSQL);
+                entity.Property(f => f.Id).HasColumnType("char(36)").IsRequired();
+                entity.Property(f => f.CreatedAt).IsRequired();
 
                 entity.HasIndex(f => new { f.UserId1, f.UserId2 }).IsUnique();
                 entity.HasIndex(f => f.Status);
@@ -62,7 +58,7 @@ namespace LunkvayAPI.Data
 
             modelBuilder.Entity<FriendshipLabel>(entity =>
             {
-                entity.Property(fl => fl.Id).HasDefaultValueSql(GuidDefaultSQL);
+                entity.Property(fl => fl.Id).HasColumnType("char(36)").IsRequired();
 
                 entity.HasIndex(fl => fl.FriendshipId);
                 entity.HasIndex(fl => fl.CreatorId);
@@ -73,10 +69,9 @@ namespace LunkvayAPI.Data
 
             modelBuilder.Entity<Chat>(entity =>
             {
-                entity.Property(c => c.Id).HasDefaultValueSql(GuidDefaultSQL);
+                entity.Property(c => c.Id).HasColumnType("char(36)").IsRequired();
                 entity.Property(c => c.Type).HasConversion<string>();
-                entity.Property(c => c.CreatedAt).HasDefaultValueSql(DateTimeDefaultSQL);
-                entity.Property(c => c.UpdatedAt).ValueGeneratedOnUpdate().HasDefaultValueSql(DateTimeDefaultSQL);
+                entity.Property(c => c.CreatedAt).IsRequired();
 
                 entity.HasIndex(c => c.CreatorId);
                 entity.HasIndex(c => c.Type);
@@ -88,8 +83,7 @@ namespace LunkvayAPI.Data
 
             modelBuilder.Entity<ChatImage>(entity =>
             {
-                entity.Property(ci => ci.Id).HasDefaultValueSql(GuidDefaultSQL);
-                entity.Property(ci => ci.UpdateAt).ValueGeneratedOnUpdate().HasDefaultValueSql(DateTimeDefaultSQL);
+                entity.Property(ci => ci.Id).HasColumnType("char(36)").IsRequired();
 
                 entity.HasIndex(ci => ci.ChatId);
 
@@ -98,7 +92,7 @@ namespace LunkvayAPI.Data
 
             modelBuilder.Entity<ChatMember>(entity =>
             {
-                entity.Property(cm => cm.Id).HasDefaultValueSql(GuidDefaultSQL);
+                entity.Property(cm => cm.Id).HasColumnType("char(36)").IsRequired();
                 entity.Property(cm => cm.Role).HasConversion<string>();
 
                 entity.HasIndex(cm => cm.ChatId);
@@ -111,13 +105,9 @@ namespace LunkvayAPI.Data
 
             modelBuilder.Entity<ChatMessage>(entity =>
             {
-                entity.Property(cm => cm.Id).HasDefaultValueSql(GuidDefaultSQL);
+                entity.Property(cm => cm.Id).HasColumnType("char(36)").IsRequired();
                 entity.Property(cm => cm.SystemMessageType).HasConversion<string>();
-                entity.Property(cm => cm.IsEdited).HasDefaultValue(false);
-                entity.Property(cm => cm.IsPinned).HasDefaultValue(false);
-                entity.Property(cm => cm.IsDeleted).HasDefaultValue(false);
-                entity.Property(cm => cm.CreatedAt).HasDefaultValueSql(DateTimeDefaultSQL);
-                entity.Property(cm => cm.UpdatedAt).ValueGeneratedOnUpdate().HasDefaultValueSql(DateTimeDefaultSQL);
+                entity.Property(cm => cm.CreatedAt).IsRequired();
 
                 entity.HasIndex(cm => cm.ChatId);
                 entity.HasIndex(cm => cm.SenderId);

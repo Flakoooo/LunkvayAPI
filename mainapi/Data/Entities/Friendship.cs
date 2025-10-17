@@ -8,7 +8,7 @@ namespace LunkvayAPI.Data.Entities
     public class Friendship
     {
         [Column("id")]
-        public Guid Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
 
         [Column("user_id_1")]
         [Required]
@@ -27,7 +27,7 @@ namespace LunkvayAPI.Data.Entities
         public required Guid InitiatorId { get; set; }
 
         [Column("created_at")]
-        public DateTime CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("updated_at")]
         public DateTime? UpdatedAt { get; set; }

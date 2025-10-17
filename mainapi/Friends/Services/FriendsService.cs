@@ -1,18 +1,23 @@
 ﻿using LunkvayAPI.Common.DTO;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Data;
+using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
+using LunkvayAPI.Users.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 
 namespace LunkvayAPI.Friends.Services
 {
     public class FriendsService(
         ILogger<FriendsService> logger, 
-        LunkvayDBContext lunkvayDBContext
+        LunkvayDBContext lunkvayDBContext,
+        IUserService userService
     ) : IFriendsService
     {
         private readonly ILogger<FriendsService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
+        private readonly IUserService _userService = userService;
 
         public async Task<ServiceResult<IEnumerable<UserListItemDTO>>> GetUserFriends(Guid userId, int page, int pageSize)
         {
@@ -97,5 +102,32 @@ namespace LunkvayAPI.Friends.Services
             _logger.LogInformation("({Date}) Получено {Count} друзей, всего {CountAll} друзей", DateTime.UtcNow, friends.Count, friendIds.Count);
             return ServiceResult<(IEnumerable<UserListItemDTO> Friends, int FriendsCount)>.Success((friends, friendIds.Count));
         }
+    
+        public async Task<ServiceResult<UserDTO>> CreateFriendShip(Guid initiatorId, Guid friendId, FriendshipStatus status)
+        {
+            if (initiatorId == Guid.Empty || friendId == Guid.Empty)
+                return ServiceResult<UserDTO>.Failure(ErrorCode.UserIdIsNull.GetDescription());
+
+            Friendship friendship = new()
+            {
+                UserId1 = initiatorId,
+                UserId2 = friendId,
+                Status = status,
+                InitiatorId = initiatorId
+            };
+
+            await _dbContext.Friendships.AddAsync(friendship);
+
+            await _dbContext.SaveChangesAsync();
+
+            return await _userService.GetUserById(friendId) 
+                ?? ServiceResult<UserDTO>.Failure(ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError);
+        }
+
+        //public async Task UpdateFriendShipStatus(Guid userId1, Guid userId2, FriendshipStatus status)
+        //{
+        //    if (userId1 == Guid.Empty || userId2 == Guid.Empty)
+        //        return;
+        //}
     }
 }

@@ -7,7 +7,7 @@ namespace LunkvayAPI.Data.Entities
     public class User
     {
         [Column("id")]
-        public Guid Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
 
         [Column("user_name")]
         [Required(ErrorMessage = "Имя пользователя не может быть пустым")]
@@ -29,7 +29,7 @@ namespace LunkvayAPI.Data.Entities
         public string LastName { get; set; } = "";
 
         [Column("created_at")]
-        public DateTime CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("is_deleted")]
         public bool IsDeleted { get; set; } = false;
@@ -38,7 +38,7 @@ namespace LunkvayAPI.Data.Entities
         public DateTime? DeletedAt { get; set; }
 
         [Column("last_login")]
-        public DateTime LastLogin { get; set; }
+        public DateTime LastLogin { get; set; } = DateTime.UtcNow;
 
         [Column("is_online")]
         public bool IsOnline { get; set; }

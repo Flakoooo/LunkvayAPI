@@ -7,7 +7,7 @@ namespace LunkvayAPI.Data.Entities
     public class FriendshipLabel
     {
         [Column("id")]
-        public Guid Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();  
 
         [Column("friendship_id")]
         [Required]
@@ -18,7 +18,7 @@ namespace LunkvayAPI.Data.Entities
         public required Guid CreatorId { get; set; }
 
         [Column("label")]
-        public string? Label { get; set; }
+        public string? Label { get; set; } = null;
 
 
 

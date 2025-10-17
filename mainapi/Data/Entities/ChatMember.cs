@@ -8,7 +8,7 @@ namespace LunkvayAPI.Data.Entities
     public class ChatMember
     {
         [Column("id")]
-        public Guid Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
 
         [Column("chat_id")]
         [Required]
