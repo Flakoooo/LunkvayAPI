@@ -1,7 +1,7 @@
-﻿using LunkvayAPI.Auth.Services;
+﻿using LunkvayAPI.Avatars.Models.Enums;
 using LunkvayAPI.Common.Results;
+using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
-using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
@@ -15,6 +15,8 @@ namespace LunkvayAPI.Avatars.Services
         private readonly string? _avatarsPath;
 
         private readonly string _defaultUserImageName = "default.jpg";
+        private readonly string _configurationBasepathName = "FileStorage:BasePath";
+        private readonly string _configurationAvatarsName = "FileStorage:BasePath";
 
         public AvatarService(
             ILogger<AvatarService> logger, LunkvayDBContext lunkvayDBContext, IConfiguration configuration
@@ -23,10 +25,10 @@ namespace LunkvayAPI.Avatars.Services
             _logger = logger;
             _dbContext = lunkvayDBContext;
 
-            string basePath = configuration["FileStorage:BasePath"] ??
-                throw new FileNotFoundException(ErrorCode.UsersAvatarsNotFound.GetDescription());
-            string avatars = configuration["FileStorage:Avatars"] ??
-                throw new FileNotFoundException(ErrorCode.UsersAvatarsNotFound.GetDescription());
+            string basePath = configuration[_configurationBasepathName] ??
+                throw new FileNotFoundException(AvatarsErrorCode.UserAvatarsPathNotFound.GetDescription());
+            string avatars = configuration[_configurationAvatarsName] ??
+                throw new FileNotFoundException(AvatarsErrorCode.UserAvatarsPathNotFound.GetDescription());
             _avatarsPath = Path.Combine(basePath, avatars);
 
             if (string.IsNullOrEmpty(_defaultUserImageName))
@@ -41,7 +43,7 @@ namespace LunkvayAPI.Avatars.Services
         public async Task<ServiceResult<byte[]>> GetUserAvatarByUserId(Guid userId)
         {
             if (userId == Guid.Empty)
-                return ServiceResult<byte[]>.Failure(ErrorCode.UserIdIsNull.GetDescription());
+                return ServiceResult<byte[]>.Failure(ErrorCode.UserIdRequired.GetDescription());
 
             if (string.IsNullOrEmpty(_avatarsPath))
             {

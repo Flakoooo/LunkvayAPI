@@ -1,8 +1,9 @@
-﻿using LunkvayAPI.Auth.Models.Requests;
+﻿using LunkvayAPI.Auth.Models.Enums;
+using LunkvayAPI.Auth.Models.Requests;
 using LunkvayAPI.Auth.Models.Utils;
 using LunkvayAPI.Common.Results;
+using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data.Entities;
-using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Profiles.Services;
 using LunkvayAPI.Users.Services;
 using Microsoft.Extensions.Options;
@@ -33,7 +34,7 @@ namespace LunkvayAPI.Auth.Services
             _profileService = profileService;
 
             if (string.IsNullOrEmpty(_jwtSettings.Key))
-                throw new ArgumentNullException(ErrorCode.JWTKeyMissing.GetDescription());
+                throw new ArgumentNullException(AuthErrorCode.JwtKeyMissing.GetDescription());
         }
 
         public async Task<ServiceResult<string>> Login(LoginRequest loginRequest)
@@ -45,28 +46,29 @@ namespace LunkvayAPI.Auth.Services
                 !BCrypt.Net.BCrypt.Verify(loginRequest.Password, result.Result.PasswordHash)
             ) 
                 return ServiceResult<string>.Failure(
-                    ErrorCode.IncorrectLoginData.GetDescription(), HttpStatusCode.UnprocessableContent
+                    AuthErrorCode.InvalidCredentials.GetDescription(), HttpStatusCode.UnprocessableContent
                 );
 
             User user = result.Result;
-            List<Claim> claims =
-            [
+
+            var claims = new List<Claim>() 
+            {
                 new("id", user.Id.ToString()),
                 new("user_name", user.UserName),
                 new("email", user.Email),
                 new("first_name", user.FirstName ?? ""),
                 new("last_name", user.LastName ?? "")
-            ];
+            };
 
             if (string.IsNullOrEmpty(_jwtSettings.Key))
                 return ServiceResult<string>.Failure(
-                    ErrorCode.JWTKeyMissing.GetDescription(), 
+                    AuthErrorCode.JwtKeyMissing.GetDescription(), 
                     HttpStatusCode.InternalServerError
                 );
 
-            SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(_jwtSettings.Key));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Key));
 
-            JwtSecurityToken token = new(
+            var token = new JwtSecurityToken(
                 issuer: _jwtSettings.Issuer,
                 audience: _jwtSettings.Audience,
                 claims: claims,
@@ -87,7 +89,7 @@ namespace LunkvayAPI.Auth.Services
                 return userResult.Error is not null
                     ? ServiceResult<User>.Failure(userResult.Error, userResult.StatusCode)
                     : ServiceResult<User>.Failure(
-                        ErrorCode.RegisterFailed.GetDescription(), HttpStatusCode.InternalServerError
+                        AuthErrorCode.RegistrationFailed.GetDescription(), HttpStatusCode.InternalServerError
                     );
 
             ServiceResult<Profile> profileResult = await _profileService.CreateProfile(userResult.Result.Id);
@@ -95,7 +97,7 @@ namespace LunkvayAPI.Auth.Services
                 return userResult.Error is not null
                     ? ServiceResult<User>.Failure(userResult.Error, userResult.StatusCode)
                     : ServiceResult<User>.Failure(
-                        ErrorCode.ProfileCreateFailed.GetDescription(),
+                        AuthErrorCode.ProfileCreationFailed.GetDescription(),
                         HttpStatusCode.InternalServerError
                     );
 

@@ -27,18 +27,5 @@ namespace LunkvayAPI.Data.Entities
 
         [ForeignKey("CreatorId")]
         public virtual User? Creator { get; set; }
-
-
-
-        public static FriendshipLabel Create(Guid friendshipId, Guid creatorId, string? label)
-        {
-            return new()
-            {
-                //Id
-                FriendshipId = friendshipId,
-                CreatorId = creatorId,
-                Label = label
-            };
-        }
     }
 }

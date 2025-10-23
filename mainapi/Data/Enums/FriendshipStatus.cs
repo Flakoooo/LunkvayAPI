@@ -1,10 +1,20 @@
-﻿namespace LunkvayAPI.Data.Enums
+﻿using System.ComponentModel;
+using System.Reflection;
+
+namespace LunkvayAPI.Data.Enums
 {
     public enum FriendshipStatus
     {
-        Pending,   //Запрос отправлен
-        Accepted,  //Дружба подтверждена
-        Rejected,  //Запрос отклонён
-        Blocked    //Пользователь в чёрном списке
+        [Description("Ожидание")]
+        Pending, //Запрос отправлен
+
+        [Description("Подтверждено")]
+        Accepted, //Дружба подтверждена
+
+        [Description("Отклонено")]
+        Rejected, //Запрос отклонён
+
+        [Description("Отменено")]
+        Cancelled //Запрос отменили
     }
 }

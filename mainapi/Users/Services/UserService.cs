@@ -1,8 +1,10 @@
 ﻿using LunkvayAPI.Common.DTO;
 using LunkvayAPI.Common.Results;
+using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
+using LunkvayAPI.Users.Models.Enums;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 
@@ -15,9 +17,9 @@ namespace LunkvayAPI.Users.Services
         public async Task<ServiceResult<UserDTO>> GetUserById(Guid userId)
         {
             if (userId == Guid.Empty)
-                return ServiceResult<UserDTO>.Failure(ErrorCode.UserIdIsNull.GetDescription());
+                return ServiceResult<UserDTO>.Failure(ErrorCode.UserIdRequired.GetDescription());
 
-            UserDTO? result = await _dbContext.Users
+            var result = await _dbContext.Users
                     .AsNoTracking()
                     .Where(u => u.Id == userId)
                     .Select(u => new UserDTO
@@ -35,23 +37,23 @@ namespace LunkvayAPI.Users.Services
                     .FirstOrDefaultAsync();
 
             if (result is null)
-                return ServiceResult<UserDTO>.Failure(ErrorCode.UserNotFound.GetDescription(), HttpStatusCode.NotFound);
+                return ServiceResult<UserDTO>.Failure(UsersErrorCode.UserNotFound.GetDescription(), HttpStatusCode.NotFound);
 
             return ServiceResult<UserDTO>.Success(result);
         }
 
         public async Task<ServiceResult<User?>> GetUserByEmail(string email)
         {
-            User? result = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
+            var result = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
             if (result is null)
-                return ServiceResult<User?>.Failure(ErrorCode.UserNotFound.GetDescription(), HttpStatusCode.NotFound);
+                return ServiceResult<User?>.Failure(UsersErrorCode.UserNotFound.GetDescription(), HttpStatusCode.NotFound);
 
             return ServiceResult<User?>.Success(result);
         }
 
         public async Task<ServiceResult<IEnumerable<UserDTO>>> GetUsers()
         {
-            List<UserDTO> result = await _dbContext.Users
+            var result = await _dbContext.Users
                 .AsNoTracking()
                 .Select(u => new UserDTO
                 {
@@ -76,14 +78,15 @@ namespace LunkvayAPI.Users.Services
         )
         {
             if (await _dbContext.Users.AsNoTracking().AnyAsync(u => u.Email == email))
-                return ServiceResult<User>.Failure(ErrorCode.EmailAlreadyTaken.GetDescription(), HttpStatusCode.Conflict);
+                return ServiceResult<User>.Failure(UsersErrorCode.EmailAlreadyExists.GetDescription(), HttpStatusCode.Conflict);
 
             if (await _dbContext.Users.AsNoTracking().AnyAsync(u => u.UserName == userName))
-                return ServiceResult<User>.Failure(ErrorCode.UserNameAlreadyTaken.GetDescription(), HttpStatusCode.Conflict);
+                return ServiceResult<User>.Failure(UsersErrorCode.UsernameAlreadyExists.GetDescription(), HttpStatusCode.Conflict);
 
-            User user = User.Create(userName, email, password, firstName, lastName);
+            var user = User.Create(userName, email, password, firstName, lastName);
 
             await _dbContext.Users.AddAsync(user);
+
             await _dbContext.SaveChangesAsync();
 
             return ServiceResult<User>.Success(user);
