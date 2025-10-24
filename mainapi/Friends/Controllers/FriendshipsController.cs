@@ -42,6 +42,9 @@ namespace LunkvayAPI.Friends.Controllers
             return Ok(result.Result);
         }
 
+        //TODO: Реализовать вывод запросов в друзья
+        //TODO: Реализовать вывод исходящих запросов в друзья
+
         [AllowAnonymous]
         [HttpGet("{userId}")]
         public async Task<ActionResult<IReadOnlyList<FriendshipDTO>>> GetUserFriends(
