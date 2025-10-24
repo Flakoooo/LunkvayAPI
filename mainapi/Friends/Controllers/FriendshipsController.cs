@@ -114,50 +114,5 @@ namespace LunkvayAPI.Friends.Controllers
             _logger.LogDebug("Успешное изменение статуса дружбы {FriendshipId}", friendshipId);
             return Ok(result.Result);
         }
-
-        /*
-        [HttpGet("random")]
-        public async Task<ActionResult<IReadOnlyList<FriendDTO>>> GetCurrentUserRandomFriends([FromQuery] int count = 6)
-        {
-            Guid userId = (Guid)HttpContext.Items["UserId"]!;
-
-            // /api/v1/friends/{userId}/random
-            // /api/v1/friends/{userId}/random?count=4
-            _logger.LogInformation("Запрос друзей пользователя {Id} для профиля", userId);
-
-            ServiceResult<(List<FriendDTO> Friends, int FriendsCount)> result
-                = await _friendsService.GetRandomUserFriends(userId, count);
-
-            if (!result.IsSuccess)
-            {
-                _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
-                return StatusCode((int)result.StatusCode, result.Error);
-            }
-
-            _logger.LogDebug("Запрос случайных друзей пользователя {Id}", userId);
-            return Ok(result.Result);
-        }
-
-        [AllowAnonymous]
-        [HttpGet("{userId}/random")]
-        public async Task<IActionResult> GetUserRandomFriends(Guid userId, [FromQuery] int count = 6)
-        {
-            // /api/v1/friends/{userId}/random
-            // /api/v1/friends/{userId}/random?count=4
-            _logger.LogInformation("Запрос друзей пользователя {Id} для профиля", userId);
-
-            ServiceResult<(List<FriendDTO> Friends, int FriendsCount)> result
-                = await _friendsService.GetRandomUserFriends(userId, count);
-
-            if (!result.IsSuccess)
-            {
-                _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
-                return StatusCode((int)result.StatusCode, result.Error);
-            }
-
-            _logger.LogDebug("Запрос случайных друзей пользователя {Id}", userId);
-            return Ok(result.Result);
-        }
-        */
     }
 }
