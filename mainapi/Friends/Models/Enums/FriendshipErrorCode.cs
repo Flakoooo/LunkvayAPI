@@ -2,7 +2,7 @@
 
 namespace LunkvayAPI.Friends.Models.Enums
 {
-    public enum FriendsErrorCode
+    public enum FriendshipErrorCode
     {
         [Description("Id дружбы не может быть пустым")]
         FriendshipIdRequired,

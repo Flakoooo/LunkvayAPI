@@ -18,7 +18,8 @@ namespace LunkvayAPI.Data.Entities
         public required Guid CreatorId { get; set; }
 
         [Column("label")]
-        public string? Label { get; set; } = null;
+        [Required]
+        public required string Label { get; set; }
 
 
 

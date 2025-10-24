@@ -1,5 +1,4 @@
 ﻿using LunkvayAPI.Common.Results;
-using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Friends.Models.DTO;
 using LunkvayAPI.Friends.Models.Requests;
 using LunkvayAPI.Friends.Services;
@@ -10,14 +9,16 @@ namespace LunkvayAPI.Friends.Controllers
 {
     [ApiController]
     [Authorize]
-    [Route("api/v1/[controller]")]
-    public class FriendsController(IFriendsService friendsService, ILogger<FriendsController> logger) : Controller
+    [Route("api/v1/friends")]
+    public class FriendshipsController(
+        IFriendshipsService friendshipsService, ILogger<FriendshipsController> logger
+    ) : Controller
     {
-        private readonly IFriendsService _friendsService = friendsService;
-        private readonly ILogger<FriendsController> _logger = logger;
+        private readonly IFriendshipsService _friendshipsService = friendshipsService;
+        private readonly ILogger<FriendshipsController> _logger = logger;
 
         [HttpGet]
-        public async Task<ActionResult<IReadOnlyList<FriendDTO>>> GetCurrentUserFriends(
+        public async Task<ActionResult<IReadOnlyList<FriendshipDTO>>> GetCurrentUserFriends(
             [FromQuery] int page = 1, [FromQuery] int pageSize = 10
         )
         {
@@ -28,8 +29,8 @@ namespace LunkvayAPI.Friends.Controllers
             // /api/v1/friends/{userId}?page=1&pageSize=10
             _logger.LogInformation("Запрос друзей пользователя {Id}, страница {Page}", userId, page);
 
-            ServiceResult<List<FriendDTO>> result
-                = await _friendsService.GetFriends(userId, page, pageSize, true);
+            ServiceResult<List<FriendshipDTO>> result
+                = await _friendshipsService.GetFriends(userId, page, pageSize, true);
 
             if (!result.IsSuccess)
             {
@@ -37,13 +38,13 @@ namespace LunkvayAPI.Friends.Controllers
                 return StatusCode((int)result.StatusCode, result.Error);
             }
 
-            _logger.LogDebug("Запрос друзей пользователя {Id}, страница {Page}", userId, page);
+            _logger.LogDebug("Вывод друзей пользователя {Id}, страница {Page}", userId, page);
             return Ok(result.Result);
         }
 
         [AllowAnonymous]
         [HttpGet("{userId}")]
-        public async Task<ActionResult<IReadOnlyList<FriendDTO>>> GetUserFriends(
+        public async Task<ActionResult<IReadOnlyList<FriendshipDTO>>> GetUserFriends(
             Guid userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10
         )
         {
@@ -52,8 +53,8 @@ namespace LunkvayAPI.Friends.Controllers
             // /api/v1/friends/{userId}?page=1&pageSize=10
             _logger.LogInformation("Запрос друзей пользователя {Id}, страница {Page}", userId, page);
 
-            ServiceResult<List<FriendDTO>> result
-                = await _friendsService.GetFriends(userId, page, pageSize);
+            ServiceResult<List<FriendshipDTO>> result
+                = await _friendshipsService.GetFriends(userId, page, pageSize);
 
             if (!result.IsSuccess)
             {
@@ -66,7 +67,7 @@ namespace LunkvayAPI.Friends.Controllers
         }
 
         [HttpPost("{friendId}")]
-        public async Task<ActionResult<FriendDTO>> CreateFriendship(Guid friendId)
+        public async Task<ActionResult<FriendshipDTO>> CreateFriendship(Guid friendId)
         {
             var userId = (Guid)HttpContext.Items["UserId"]!;
 
@@ -75,8 +76,8 @@ namespace LunkvayAPI.Friends.Controllers
                 userId, friendId
             );
 
-            ServiceResult<FriendDTO> result
-                = await _friendsService.CreateFriendShip(userId, friendId);
+            ServiceResult<FriendshipDTO> result
+                = await _friendshipsService.CreateFriendShip(userId, friendId);
             if (!result.IsSuccess)
             {
                 _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
@@ -91,7 +92,7 @@ namespace LunkvayAPI.Friends.Controllers
         }
 
         [HttpPatch("status/{friendshipId}")]
-        public async Task<ActionResult<FriendDTO>> UpdateFriendshipStatus(
+        public async Task<ActionResult<FriendshipDTO>> UpdateFriendshipStatus(
             Guid friendshipId, [FromBody] UpdateFriendshipStatusRequest request
         )
         {
@@ -102,8 +103,8 @@ namespace LunkvayAPI.Friends.Controllers
                 friendshipId, userId, request.Status
             );
 
-            ServiceResult<FriendDTO> result 
-                = await _friendsService.UpdateFriendShipStatus(userId, friendshipId, request.Status);
+            ServiceResult<FriendshipDTO> result 
+                = await _friendshipsService.UpdateFriendShipStatus(userId, friendshipId, request.Status);
             if (!result.IsSuccess)
             {
                 _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);

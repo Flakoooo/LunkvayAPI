@@ -12,24 +12,24 @@ using System.Net;
 
 namespace LunkvayAPI.Friends.Services
 {
-    public class FriendsService(
-        ILogger<FriendsService> logger, 
+    public class FriendshipsService(
+        ILogger<FriendshipsService> logger, 
         LunkvayDBContext lunkvayDBContext,
         IUserService userService
-    ) : IFriendsService
+    ) : IFriendshipsService
     {
-        private readonly ILogger<FriendsService> _logger = logger;
+        private readonly ILogger<FriendshipsService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
         private readonly IUserService _userService = userService;
 
-        private async Task<ServiceResult<FriendDTO>> GetFriendDTO(Friendship friendship, Guid currentUserId)
+        private async Task<ServiceResult<FriendshipDTO>> GetFriendDTO(Friendship friendship, Guid currentUserId)
         {
             var friendUserId = friendship.UserId1 == currentUserId ? friendship.UserId2 : friendship.UserId1;
 
             var userResult = await _userService.GetUserById(friendUserId);
             if (!userResult.IsSuccess || userResult.Result is null)
-                return ServiceResult<FriendDTO>.Failure(
-                    FriendsErrorCode.FriendDataRetrievalFailed.GetDescription(),
+                return ServiceResult<FriendshipDTO>.Failure(
+                    FriendshipErrorCode.FriendDataRetrievalFailed.GetDescription(),
                     HttpStatusCode.InternalServerError
                 );
 
@@ -38,10 +38,10 @@ namespace LunkvayAPI.Friends.Services
             var labels = await _dbContext.FriendshipLabels
                 .AsNoTracking()
                 .Where(fl => fl.FriendshipId == friendship.Id)
-                .Select(fl => fl.Label)
+                .Select(fl => new FriendshipLabelDTO { Id = fl.Id, Label = fl.Label })
                 .ToListAsync();
 
-            var friend = new FriendDTO()
+            var friend = new FriendshipDTO()
             {
                 FriendshipId = friendship.Id,
                 Status = friendship.Status,
@@ -52,33 +52,33 @@ namespace LunkvayAPI.Friends.Services
                 IsOnline = user.IsOnline
             };
 
-            return ServiceResult<FriendDTO>.Success(friend);
+            return ServiceResult<FriendshipDTO>.Success(friend);
         }
 
         private static string? StatusValidation(Guid userId, Friendship friendship, FriendshipStatus newStatus)
         {
             if (friendship.Status == newStatus)
-                return FriendsErrorCode.StatusUnchanged.GetDescription();
+                return FriendshipErrorCode.StatusUnchanged.GetDescription();
 
             var isInitiator = friendship.InitiatorId == userId;
 
             if (isInitiator && newStatus != FriendshipStatus.Cancelled)
-                return FriendsErrorCode.InitiatorCanOnlyCancel.GetDescription();
+                return FriendshipErrorCode.InitiatorCanOnlyCancel.GetDescription();
 
             if (!isInitiator && newStatus != FriendshipStatus.Accepted && newStatus != FriendshipStatus.Rejected)
-                return FriendsErrorCode.ReceiverCanOnlyAcceptOrReject.GetDescription();
+                return FriendshipErrorCode.ReceiverCanOnlyAcceptOrReject.GetDescription();
 
             if (friendship.Status != FriendshipStatus.Pending)
-                return FriendsErrorCode.CanOnlyUpdatePendingRequests.GetDescription();
+                return FriendshipErrorCode.CanOnlyUpdatePendingRequests.GetDescription();
 
             return null;
         }
 
-        public async Task<ServiceResult<List<FriendDTO>>> GetFriends(
+        public async Task<ServiceResult<List<FriendshipDTO>>> GetFriends(
             Guid userId,
             int page,
             int pageSize,
-            bool isCurrentUser = false
+            bool isCurrentUser
         )
         {
             _logger.LogInformation(
@@ -87,7 +87,7 @@ namespace LunkvayAPI.Friends.Services
             );
 
             if (userId == Guid.Empty)
-                return ServiceResult<List<FriendDTO>>.Failure(ErrorCode.UserIdRequired.GetDescription());
+                return ServiceResult<List<FriendshipDTO>>.Failure(ErrorCode.UserIdRequired.GetDescription());
 
             var friendships = await _dbContext.Friendships
                 .AsNoTracking()
@@ -97,7 +97,7 @@ namespace LunkvayAPI.Friends.Services
                 .Take(pageSize)
                 .ToListAsync();
 
-            Dictionary<Guid, List<string?>>? labelsMap = null;
+            Dictionary<Guid, List<FriendshipLabelDTO>>? labelsMap = null;
             if (isCurrentUser && friendships.Count != 0)
             {
                 var friendshipIds = friendships.Select(f => f.Id).ToList();
@@ -107,23 +107,28 @@ namespace LunkvayAPI.Friends.Services
                     .GroupBy(fl => fl.FriendshipId)
                     .ToDictionaryAsync(
                         g => g.Key,
-                        g => g.Select(fl => fl.Label).ToList()
+                        g => g.Select(fl => new FriendshipLabelDTO 
+                            { 
+                                Id = fl.Id, 
+                                Label = fl.Label 
+                            }
+                        ).ToList()
                     );
             }
 
-            var friends = new List<FriendDTO>();
+            var friends = new List<FriendshipDTO>();
             foreach (var f in friendships)
             {
                 ServiceResult<UserDTO> userResult = await _userService.GetUserById(f.FriendId);
                 if (!userResult.IsSuccess || userResult.Result is null)
-                    return ServiceResult<List<FriendDTO>>.Failure(
+                    return ServiceResult<List<FriendshipDTO>>.Failure(
                         userResult.Error ?? ErrorCode.InternalServerError.GetDescription(),
                         HttpStatusCode.InternalServerError
                     );
 
                 UserDTO user = userResult.Result;
 
-                var friend = new FriendDTO
+                var friend = new FriendshipDTO
                 {
                     FriendshipId = f.Id,
                     Status = isCurrentUser ? f.Status : null,
@@ -137,7 +142,7 @@ namespace LunkvayAPI.Friends.Services
             }
 
             _logger.LogInformation("({Date}) Получено {Count} друзей", DateTime.UtcNow, friendships.Count);
-            return ServiceResult<List<FriendDTO>>.Success(friends);
+            return ServiceResult<List<FriendshipDTO>>.Success(friends);
         }
 
         public async Task<ServiceResult<RandomFriendsResult>> GetRandomFriends(Guid userId, int count)
@@ -183,13 +188,13 @@ namespace LunkvayAPI.Friends.Services
             );
         }
 
-        public async Task<ServiceResult<FriendDTO>> CreateFriendShip(Guid initiatorId, Guid friendId)
+        public async Task<ServiceResult<FriendshipDTO>> CreateFriendShip(Guid initiatorId, Guid friendId)
         {
             if (initiatorId == Guid.Empty || friendId == Guid.Empty)
-                return ServiceResult<FriendDTO>.Failure(ErrorCode.UserIdRequired.GetDescription());
+                return ServiceResult<FriendshipDTO>.Failure(ErrorCode.UserIdRequired.GetDescription());
 
             if (initiatorId == friendId)
-                return ServiceResult<FriendDTO>.Failure(FriendsErrorCode.CannotAddSelfAsFriend.GetDescription());
+                return ServiceResult<FriendshipDTO>.Failure(FriendshipErrorCode.CannotAddSelfAsFriend.GetDescription());
 
             var userId1 = initiatorId.CompareTo(friendId) < 0 ? initiatorId : friendId;
             var userId2 = initiatorId.CompareTo(friendId) < 0 ? friendId : initiatorId;
@@ -200,10 +205,10 @@ namespace LunkvayAPI.Friends.Services
             if (friendship != null)
             {
                 if (friendship.Status == FriendshipStatus.Pending)
-                    return ServiceResult<FriendDTO>.Failure(FriendsErrorCode.FriendRequestAlreadyExists.GetDescription());
+                    return ServiceResult<FriendshipDTO>.Failure(FriendshipErrorCode.FriendRequestAlreadyExists.GetDescription());
 
                 if (friendship.Status == FriendshipStatus.Accepted)
-                    return ServiceResult<FriendDTO>.Failure(FriendsErrorCode.AlreadyFriends.GetDescription());
+                    return ServiceResult<FriendshipDTO>.Failure(FriendshipErrorCode.AlreadyFriends.GetDescription());
 
                 if (friendship.Status == FriendshipStatus.Cancelled || friendship.Status == FriendshipStatus.Rejected)
                 {
@@ -229,13 +234,13 @@ namespace LunkvayAPI.Friends.Services
             return await GetFriendDTO(friendship, initiatorId);
         }
 
-        public async Task<ServiceResult<FriendDTO>> UpdateFriendShipStatus(Guid userId, Guid friendshipId, FriendshipStatus status)
+        public async Task<ServiceResult<FriendshipDTO>> UpdateFriendShipStatus(Guid userId, Guid friendshipId, FriendshipStatus status)
         {
             if (userId == Guid.Empty)
-                return ServiceResult<FriendDTO>.Failure(ErrorCode.UserIdRequired.GetDescription());
+                return ServiceResult<FriendshipDTO>.Failure(ErrorCode.UserIdRequired.GetDescription());
 
             if (friendshipId == Guid.Empty)
-                return ServiceResult<FriendDTO>.Failure(FriendsErrorCode.FriendshipIdRequired.GetDescription());
+                return ServiceResult<FriendshipDTO>.Failure(FriendshipErrorCode.FriendshipIdRequired.GetDescription());
 
             var friendship = await _dbContext.Friendships
                 .FirstOrDefaultAsync(f => f.Id == friendshipId &&
@@ -243,13 +248,13 @@ namespace LunkvayAPI.Friends.Services
                 );
 
             if (friendship is null)
-                return ServiceResult<FriendDTO>.Failure(
-                    FriendsErrorCode.FriendshipNotFound.GetDescription(), HttpStatusCode.NotFound
+                return ServiceResult<FriendshipDTO>.Failure(
+                    FriendshipErrorCode.FriendshipNotFound.GetDescription(), HttpStatusCode.NotFound
                 );
 
             string? statusError = StatusValidation(userId, friendship, status);
             if (statusError != null)
-                return ServiceResult<FriendDTO>.Failure(statusError);
+                return ServiceResult<FriendshipDTO>.Failure(statusError);
 
             friendship.Status = status;
             friendship.UpdatedAt = DateTime.UtcNow;

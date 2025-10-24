@@ -16,12 +16,12 @@ namespace LunkvayAPI.Profiles.Services
     public class ProfileService(
         LunkvayDBContext lunkvayDBContext, 
         IUserService userService,
-        IFriendsService friendsService
+        IFriendshipsService friendshipsService
     ) : IProfileService
     {
         private readonly LunkvayDBContext _dBContext = lunkvayDBContext;
         private readonly IUserService _userService = userService;
-        private readonly IFriendsService _friendsService = friendsService;
+        private readonly IFriendshipsService _friendshipsService = friendshipsService;
 
         public async Task<ServiceResult<ProfileDTO>> GetUserProfileById(Guid userId)
         {
@@ -42,7 +42,7 @@ namespace LunkvayAPI.Profiles.Services
                 );
 
             ServiceResult<RandomFriendsResult> friendsResult 
-                = await _friendsService.GetRandomFriends(userId);
+                = await _friendshipsService.GetRandomFriends(userId);
 
             var profileDTO = new ProfileDTO()
             { 

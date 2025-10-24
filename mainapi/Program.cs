@@ -87,7 +87,8 @@ namespace LunkvayAPI
             //Avatars
             services.AddScoped<IAvatarService, AvatarService>();
             //Friends
-            services.AddScoped<IFriendsService, FriendsService>();
+            services.AddScoped<IFriendshipsService, FriendshipsService>();
+            services.AddScoped<IFriendshipLabelsService, FriendshipLabelsService>();
             //Chats
             services.AddScoped<IChatNotificationService, ChatNotificationService>();
             services.AddScoped<IChatService, ChatService>();
