@@ -63,7 +63,7 @@ namespace LunkvayAPI.Friends.Controllers
         [HttpDelete("{friendshipLabelId}")]
         public async Task<ActionResult> DeleteLabel(Guid friendshipLabelId)
         {
-            var userId = (Guid)HttpContext.Items["userId"]!;
+            var userId = (Guid)HttpContext.Items["UserId"]!;
 
             _logger.LogInformation(
                 "Запрос удаления дружеской метки {LabelId} пользователем {UserId}", 
@@ -89,7 +89,7 @@ namespace LunkvayAPI.Friends.Controllers
         [HttpDelete]
         public async Task<ActionResult> DeleteSpecificLabel([FromQuery] string label)
         {
-            var userId = (Guid)HttpContext.Items["userId"]!;
+            var userId = (Guid)HttpContext.Items["UserId"]!;
 
             _logger.LogInformation(
                 "Запрос удаления дружеских меток '{LabelName}' пользователем {UserId}",
