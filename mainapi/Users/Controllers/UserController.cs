@@ -27,7 +27,6 @@ namespace LunkvayAPI.Users.Controllers
             return StatusCode((int)result.StatusCode, result.Error);
         }
 
-        //TODO: сделать постраничную загрузку
         [HttpGet("all")]
         public async Task<IActionResult> GetUsers()
         {

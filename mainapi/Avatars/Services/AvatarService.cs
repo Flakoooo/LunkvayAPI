@@ -16,7 +16,7 @@ namespace LunkvayAPI.Avatars.Services
 
         private readonly string _defaultUserImageName = "default.jpg";
         private readonly string _configurationBasepathName = "FileStorage:BasePath";
-        private readonly string _configurationAvatarsName = "FileStorage:BasePath";
+        private readonly string _configurationAvatarsName = "FileStorage:Avatars";
 
         public AvatarService(
             ILogger<AvatarService> logger, LunkvayDBContext lunkvayDBContext, IConfiguration configuration

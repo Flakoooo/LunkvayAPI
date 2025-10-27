@@ -7,13 +7,17 @@ using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Friends.Models.DTO;
 using LunkvayAPI.Friends.Models.Enums;
 using LunkvayAPI.Users.Services;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using System;
+using System.Linq.Expressions;
 using System.Net;
 
 namespace LunkvayAPI.Friends.Services
 {
     public class FriendshipsService(
-        ILogger<FriendshipsService> logger, 
+        ILogger<FriendshipsService> logger,
         LunkvayDBContext lunkvayDBContext,
         IUserService userService
     ) : IFriendshipsService
@@ -55,6 +59,39 @@ namespace LunkvayAPI.Friends.Services
             return ServiceResult<FriendshipDTO>.Success(friend);
         }
 
+        private async Task<List<FriendshipDTO>> GetFriendsDTO(
+            Guid userId, int page, int pageSize,
+            Expression<Func<Friendship, bool>> expression,
+            bool includeStatus,
+            bool includeLabels
+        )
+        {
+            var query = _dbContext.Friendships
+                .AsNoTracking()
+                .Where(expression)
+                .Select(f => new FriendshipDTO
+                {
+                    FriendshipId = f.Id,
+                    Status = includeStatus ? f.Status : null,
+                    UserId = f.UserId1 == userId ? f.UserId2 : f.UserId1,
+                    FirstName = f.UserId1 == userId ? f.User2!.FirstName : f.User1!.FirstName,
+                    LastName = f.UserId1 == userId ? f.User2!.LastName : f.User1!.LastName,
+                    IsOnline = f.UserId1 == userId ? f.User2!.IsOnline : f.User1!.IsOnline,
+                    Labels = includeLabels ? f.Labels.Select(l => new FriendshipLabelDTO
+                    {
+                        Id = l.Id,
+                        Label = l.Label
+                    }).ToList() : null
+                });
+
+            var friends = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return friends;
+        }
+
         private static string? StatusValidation(Guid userId, Friendship friendship, FriendshipStatus newStatus)
         {
             if (friendship.Status == newStatus)
@@ -75,10 +112,7 @@ namespace LunkvayAPI.Friends.Services
         }
 
         public async Task<ServiceResult<List<FriendshipDTO>>> GetFriends(
-            Guid userId,
-            int page,
-            int pageSize,
-            bool isCurrentUser
+            Guid userId, int page, int pageSize, bool isCurrentUser
         )
         {
             _logger.LogInformation(
@@ -89,60 +123,93 @@ namespace LunkvayAPI.Friends.Services
             if (userId == Guid.Empty)
                 return ServiceResult<List<FriendshipDTO>>.Failure(ErrorCode.UserIdRequired.GetDescription());
 
-            var friendships = await _dbContext.Friendships
-                .AsNoTracking()
-                .Where(f => f.Status == FriendshipStatus.Accepted && (f.UserId1 == userId || f.UserId2 == userId))
-                .Select(f => new { f.Id, FriendId = f.UserId1 == userId ? f.UserId2 : f.UserId1, f.Status })
+            var friends = await GetFriendsDTO(
+                userId, page, pageSize,
+                f => f.Status == FriendshipStatus.Accepted && (f.UserId1 == userId || f.UserId2 == userId),
+                isCurrentUser,
+                isCurrentUser
+            );
+
+            _logger.LogInformation("({Date}) Получено {Count} друзей", DateTime.UtcNow, friends.Count);
+            return ServiceResult<List<FriendshipDTO>>.Success(friends);
+        }
+
+        public async Task<ServiceResult<List<FriendshipDTO>>> GetIncomingFriendRequests(
+            Guid userId, int page, int pageSize
+        )
+        {
+            _logger.LogInformation(
+                "({Date}) Запрос исходящий заявок в друзья пользователя {Id} (страница {Page}, размер {PageSize})",
+                DateTime.UtcNow, userId, page, pageSize
+            );
+
+            if (userId == Guid.Empty)
+                return ServiceResult<List<FriendshipDTO>>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            var friends = await GetFriendsDTO(
+                userId, page, pageSize,
+                f => f.InitiatorId != userId && 
+                     f.Status == FriendshipStatus.Pending && 
+                     (f.UserId1 == userId || f.UserId2 == userId),
+                true,
+                false
+            );
+
+            _logger.LogInformation("({Date}) Получено {Count} исходящих заявок", DateTime.UtcNow, friends.Count);
+            return ServiceResult<List<FriendshipDTO>>.Success(friends);
+        }
+
+        public async Task<ServiceResult<List<FriendshipDTO>>> GetOutgoingFriendRequests(
+            Guid userId, int page, int pageSize
+        )
+        {
+            _logger.LogInformation(
+                "({Date}) Запрос входящих заявок в друзья пользователя {Id} (страница {Page}, размер {PageSize})",
+                DateTime.UtcNow, userId, page, pageSize
+            );
+
+            if (userId == Guid.Empty)
+                return ServiceResult<List<FriendshipDTO>>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            var friends = await GetFriendsDTO(
+                userId, page, pageSize,
+                f => f.InitiatorId == userId && f.Status == FriendshipStatus.Pending,
+                true,
+                false
+            );
+
+            _logger.LogInformation("({Date}) Получено {Count} входящих заявок", DateTime.UtcNow, friends.Count);
+            return ServiceResult<List<FriendshipDTO>>.Success(friends);
+        }
+
+        public async Task<ServiceResult<List<UserListItemDTO>>> GetPossibleFriends(
+            Guid userId, int page, int pageSize
+        )
+        {
+            if (userId == Guid.Empty)
+                return ServiceResult<List<UserListItemDTO>>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            var users = await _dbContext.Users
+                .Where(u => u.Id != userId)
+                .Where(u => !_dbContext.Friendships
+                    .Any(f => (f.UserId1 == userId && f.UserId2 == u.Id) || 
+                              (f.UserId2 == userId && f.UserId1 == u.Id))
+                )
+                .OrderByDescending(u => _dbContext.Friendships
+                    .Count(f => f.UserId1 == u.Id || f.UserId2 == u.Id)
+                )
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
+                .Select(u => new UserListItemDTO
+                {
+                    UserId = u.Id,
+                    FirstName = u.FirstName,
+                    LastName = u.LastName,
+                    IsOnline = u.IsOnline,
+                })
                 .ToListAsync();
 
-            Dictionary<Guid, List<FriendshipLabelDTO>>? labelsMap = null;
-            if (isCurrentUser && friendships.Count != 0)
-            {
-                var friendshipIds = friendships.Select(f => f.Id).ToList();
-                labelsMap = await _dbContext.FriendshipLabels
-                    .AsNoTracking()
-                    .Where(fl => friendshipIds.Contains(fl.FriendshipId))
-                    .GroupBy(fl => fl.FriendshipId)
-                    .ToDictionaryAsync(
-                        g => g.Key,
-                        g => g.Select(fl => new FriendshipLabelDTO 
-                            { 
-                                Id = fl.Id, 
-                                Label = fl.Label 
-                            }
-                        ).ToList()
-                    );
-            }
-
-            var friends = new List<FriendshipDTO>();
-            foreach (var f in friendships)
-            {
-                ServiceResult<UserDTO> userResult = await _userService.GetUserById(f.FriendId);
-                if (!userResult.IsSuccess || userResult.Result is null)
-                    return ServiceResult<List<FriendshipDTO>>.Failure(
-                        userResult.Error ?? ErrorCode.InternalServerError.GetDescription(),
-                        HttpStatusCode.InternalServerError
-                    );
-
-                UserDTO user = userResult.Result;
-
-                var friend = new FriendshipDTO
-                {
-                    FriendshipId = f.Id,
-                    Status = isCurrentUser ? f.Status : null,
-                    UserId = user.Id,
-                    FirstName = user.FirstName,
-                    LastName = user.LastName,
-                    IsOnline = user.IsOnline,
-                    Labels = isCurrentUser ? (labelsMap?.GetValueOrDefault(f.Id) ?? []) : null
-                };
-                friends.Add(friend);
-            }
-
-            _logger.LogInformation("({Date}) Получено {Count} друзей", DateTime.UtcNow, friendships.Count);
-            return ServiceResult<List<FriendshipDTO>>.Success(friends);
+            return ServiceResult<List<UserListItemDTO>>.Success(users);
         }
 
         public async Task<ServiceResult<RandomFriendsResult>> GetRandomFriends(Guid userId, int count)
@@ -152,39 +219,31 @@ namespace LunkvayAPI.Friends.Services
             if (userId == Guid.Empty)
                 return ServiceResult<RandomFriendsResult>.Failure(ErrorCode.UserIdRequired.GetDescription());
 
-            List<Guid> friendIds = await _dbContext.Friendships
+            var query = _dbContext.Friendships
                 .AsNoTracking()
-                .Where(f => f.Status == FriendshipStatus.Accepted && (f.UserId1 == userId || f.UserId2 == userId))
-                .Select(f => f.UserId1 == userId ? f.UserId2 : f.UserId1)
-                .ToListAsync();
+                .Where(f => f.Status == FriendshipStatus.Accepted && (f.UserId1 == userId || f.UserId2 == userId));
 
-            List<UserListItemDTO> friends = [];
+            var friendsCount = await query.CountAsync();
 
-            if (friendIds.Count >= count)
-            {
-                Random random = new();
-                friendIds = [.. friendIds.OrderBy(x => random.Next()).Take(count)];
-            }
-
-            friends = await _dbContext.Users
-                .AsNoTracking()
-                .Where(u => friendIds.Contains(u.Id) && !u.IsDeleted)
-                .Select(u => new UserListItemDTO
+            var friends = await query
+                .OrderBy(x => EF.Functions.Random())
+                .Take(count)
+                .Select(f => new UserListItemDTO
                 {
-                    UserId = u.Id,
-                    FirstName = u.FirstName,
-                    IsOnline = u.IsOnline,
-                    LastName = u.LastName
+                    UserId = f.UserId1 == userId ? f.UserId2 : f.UserId1,
+                    FirstName = f.UserId1 == userId ? f.User2!.FirstName : f.User1!.FirstName,
+                    LastName = f.UserId1 == userId ? f.User2!.LastName : f.User1!.LastName,
+                    IsOnline = f.UserId1 == userId ? f.User2!.IsOnline : f.User1!.IsOnline
                 })
                 .ToListAsync();
 
             _logger.LogInformation(
-                "({Date}) Получено {Count} друзей, всего {CountAll} друзей", 
-                DateTime.UtcNow, friends.Count, friendIds.Count
+                "({Date}) Получено {Count} друзей, всего {CountAll} друзей",
+                DateTime.UtcNow, friends.Count, friendsCount
             );
 
             return ServiceResult<RandomFriendsResult>.Success(
-                new() { Friends = friends, FriendsCount = friends.Count }
+                new() { Friends = friends, FriendsCount = friendsCount }
             );
         }
 
