@@ -72,11 +72,13 @@ namespace LunkvayAPI
 
             services.AddAuthorization();
 
-            services.AddCors(options => options.AddPolicy("AllowAll", policy =>
-                policy.AllowAnyHeader()
-                      .AllowAnyMethod()
-                      .SetIsOriginAllowed(_ => true)
-                      .AllowCredentials())
+            services.AddCors(
+                options => options.AddPolicy("Policy", policy => 
+                    policy.WithOrigins("http://localhost:8080", "http://127.0.0.1:8080")
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials()
+                    )
             );
 
             //Auth
@@ -112,7 +114,7 @@ namespace LunkvayAPI
             app.UseAuthentication();
             app.UseAuthorization();
 
-            app.UseCors("AllowAll");
+            app.UseCors("Policy");
             app.MapHub<ChatHub>("/chatHub");
             app.MapControllers();
         }

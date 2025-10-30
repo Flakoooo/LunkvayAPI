@@ -2,9 +2,9 @@
 .vs/
 [Bb]in/
 [Oo]bj/
+mainapi/Properties/PublishProfiles/
 
 # файлы разработки
 .env
 mainapi/appsettings.Development.json
 mainapi/Properties/launchSettings.json
-mainapi/Properties/PublishProfiles/
