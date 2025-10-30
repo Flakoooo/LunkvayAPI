@@ -7,3 +7,4 @@
 .env
 mainapi/appsettings.Development.json
 mainapi/Properties/launchSettings.json
+mainapi/Properties/PublishProfiles/
