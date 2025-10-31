@@ -25,7 +25,7 @@ namespace LunkvayAPI.Chats.Controllers
         [HttpGet("get/{userId}")]
         public async Task<IActionResult> GetRooms(Guid userId)
         {
-            ServiceResult<IEnumerable<ChatDTO>> result = await _chatService.GetRooms(userId);
+            ServiceResult<List<ChatDTO>> result = await _chatService.GetRooms(userId);
             if (result.IsSuccess)
             {
                 _logger.LogDebug("Запрос списка чатов для {UserId}", userId);

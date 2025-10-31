@@ -6,12 +6,12 @@ namespace LunkvayAPI.Chats.Models.Requests
 {
     public class ChatRequest
     {
-        public string? Name { get; set; }
+        public string? Name { get; init; }
 
         [Required]
-        public required ChatType Type { get; set; }
+        public ChatType Type { get; init; }
 
         [Required]
-        public required IEnumerable<UserDTO> Members { get; set; }
+        public IEnumerable<UserDTO> Members { get; init; } = [];
     }
 }

@@ -11,7 +11,6 @@ namespace LunkvayAPI.Data.Entities
         public Guid Id { get; set; } = Guid.NewGuid();
 
         [Column("chat_id")]
-        [Required]
         public required Guid ChatId { get; set; }
 
         [Column("sender_id")]
@@ -21,7 +20,6 @@ namespace LunkvayAPI.Data.Entities
         public required SystemMessageType SystemMessageType { get; set; }
 
         [Column("message")]
-        [Required]
         public required string Message { get; set; }
 
         [Column("is_edited")]

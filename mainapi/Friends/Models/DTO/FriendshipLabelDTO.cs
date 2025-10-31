@@ -2,7 +2,7 @@
 {
     public class FriendshipLabelDTO
     {
-        public Guid? Id { get; set; }
-        public string? Label { get; set; }
+        public required Guid Id { get; set; }
+        public required string Label { get; set; }
     }
 }

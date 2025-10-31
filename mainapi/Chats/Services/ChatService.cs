@@ -3,11 +3,11 @@ using LunkvayAPI.Chats.Models.Requests;
 using LunkvayAPI.Chats.Services.Interfaces;
 using LunkvayAPI.Common.DTO;
 using LunkvayAPI.Common.Results;
+using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
 using Microsoft.EntityFrameworkCore;
-using MySqlConnector;
 
 namespace LunkvayAPI.Chats.Services
 {
@@ -19,7 +19,7 @@ namespace LunkvayAPI.Chats.Services
         private readonly ILogger<ChatService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
 
-        public async Task<ServiceResult<IEnumerable<ChatDTO>>> GetRooms(Guid userId)
+        public async Task<ServiceResult<List<ChatDTO>>> GetRooms(Guid userId)
         {
             _logger.LogInformation("({Date}) Запрос списка чатов для {UserId}", DateTime.Now, userId);
 
@@ -79,7 +79,7 @@ namespace LunkvayAPI.Chats.Services
 
             _logger.LogInformation("({Date}) Получено {Count} чатов", DateTime.UtcNow, chatDtos.Count);
 
-            return ServiceResult<IEnumerable<ChatDTO>>.Success(chatDtos);
+            return ServiceResult<List<ChatDTO>>.Success(chatDtos);
         }
 
         public async Task<ServiceResult<ChatDTO>> CreateRoom(ChatRequest chatRequest, Guid? creatorId)
@@ -118,6 +118,33 @@ namespace LunkvayAPI.Chats.Services
             await _dbContext.SaveChangesAsync();
 
             return ServiceResult<ChatDTO>.Success(chatDTO);
+        }
+
+        //public async Task<ServiceResult<ChatDTO>> UpdateChat()
+        //{
+            
+        //}
+
+        public async Task<ServiceResult<bool>> DeleteChat(Guid creatorId, Guid chatId)
+        {
+            if (creatorId == Guid.Empty)
+                return ServiceResult<bool>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            if (chatId == Guid.Empty)
+                return ServiceResult<bool>.Failure("Id чата не может быть пустым");
+
+            var chat = await _dbContext.Chats
+                .FirstOrDefaultAsync(c => c.CreatorId == creatorId && c.Id == chatId);
+
+            if (chat is null)
+                return ServiceResult<bool>.Failure("Не удалось удалить чат");
+
+            chat.IsDeleted = true;
+            chat.DeletedAt = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+
+            return ServiceResult<bool>.Success(true);
         }
     }
 }

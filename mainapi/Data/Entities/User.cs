@@ -10,16 +10,12 @@ namespace LunkvayAPI.Data.Entities
         public Guid Id { get; set; } = Guid.NewGuid();
 
         [Column("user_name")]
-        [Required(ErrorMessage = "Имя пользователя не может быть пустым")]
         public required string UserName { get; set; }
 
         [Column("email")]
-        [Required(ErrorMessage = "Почта не может быть пустой")]
-        [EmailAddress(ErrorMessage = "Неверный формат почты")]
         public required string Email { get; set; }
 
         [Column("password_hash")]
-        [Required(ErrorMessage = "Пароль не может быть пустым")]
         public required string PasswordHash { get; set; }
 
         [Column("first_name")]

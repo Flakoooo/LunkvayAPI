@@ -2,7 +2,7 @@
 {
     public class UpdateProfileRequest
     {
-        public string? NewStatus { get; set; }
-        public string? NewAbout { get; set; }
+        public string? NewStatus { get; init; }
+        public string? NewAbout { get; init; }
     }
 }

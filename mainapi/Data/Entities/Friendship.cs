@@ -1,5 +1,4 @@
 ﻿using LunkvayAPI.Data.Enums;
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace LunkvayAPI.Data.Entities
@@ -11,19 +10,15 @@ namespace LunkvayAPI.Data.Entities
         public Guid Id { get; set; } = Guid.NewGuid();
 
         [Column("user_id_1")]
-        [Required]
         public required Guid UserId1 { get; set; }
 
         [Column("user_id_2")]
-        [Required]
         public required Guid UserId2 { get; set; }
 
         [Column("status")]
-        [Required]
         public required FriendshipStatus Status { get; set; }
 
         [Column("initiator_id")]
-        [Required]
         public required Guid InitiatorId { get; set; }
 
         [Column("created_at")]

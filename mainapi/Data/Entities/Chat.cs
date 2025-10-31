@@ -1,5 +1,4 @@
 ﻿using LunkvayAPI.Data.Enums;
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace LunkvayAPI.Data.Entities
@@ -20,8 +19,7 @@ namespace LunkvayAPI.Data.Entities
         public string? Name { get; set; } = null;
 
         [Column("type")]
-        [Required]
-        public ChatType Type { get; set; }
+        public required ChatType Type { get; set; }
 
         [Column("is_deleted")]
         public bool IsDeleted { get; set; }
@@ -31,6 +29,9 @@ namespace LunkvayAPI.Data.Entities
 
         [Column("updated_at")]
         public DateTime? UpdatedAt { get; set; }
+
+        [Column("deleted_at")]
+        public DateTime? DeletedAt { get; set; }
 
 
 

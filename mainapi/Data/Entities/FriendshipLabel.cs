@@ -10,15 +10,12 @@ namespace LunkvayAPI.Data.Entities
         public Guid Id { get; set; } = Guid.NewGuid();  
 
         [Column("friendship_id")]
-        [Required]
         public required Guid FriendshipId { get; set; }
 
         [Column("creator_id")]
-        [Required]
         public required Guid CreatorId { get; set; }
 
         [Column("label")]
-        [Required]
         public required string Label { get; set; }
 
 

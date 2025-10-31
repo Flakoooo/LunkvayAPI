@@ -11,18 +11,15 @@ namespace LunkvayAPI.Data.Entities
         public Guid Id { get; set; } = Guid.NewGuid();
 
         [Column("chat_id")]
-        [Required]
         public required Guid ChatId { get; set; }
 
         [Column("member_id")]
-        [Required]
         public required Guid MemberId { get; set; }
 
         [Column("member_name")]
         public string? MemberName { get; set; } = null;
 
         [Column("role")]
-        [Required]
         public required ChatMemberRole Role { get; set; }
 
 

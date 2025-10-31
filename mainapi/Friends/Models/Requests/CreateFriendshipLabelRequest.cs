@@ -1,8 +1,13 @@
-﻿namespace LunkvayAPI.Friends.Models.Requests
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace LunkvayAPI.Friends.Models.Requests
 {
     public class CreateFriendshipLabelRequest
     {
-        public required Guid FriendshipId { get; init; }
-        public required string Label { get; init; }
+        [Required]
+        public Guid FriendshipId { get; init; }
+
+        [Required]
+        public string Label { get; init; } = string.Empty;
     }
 }

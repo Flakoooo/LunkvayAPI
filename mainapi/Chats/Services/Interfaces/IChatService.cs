@@ -6,7 +6,7 @@ namespace LunkvayAPI.Chats.Services.Interfaces
 {
     public interface IChatService
     {
-        Task<ServiceResult<IEnumerable<ChatDTO>>> GetRooms(Guid userId);
+        Task<ServiceResult<List<ChatDTO>>> GetRooms(Guid userId);
         Task<ServiceResult<ChatDTO>> CreateRoom(ChatRequest chatRequest, Guid? creatorId = null);
     }
 }

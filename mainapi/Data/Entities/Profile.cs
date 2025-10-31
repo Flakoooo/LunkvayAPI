@@ -9,7 +9,7 @@ namespace LunkvayAPI.Data.Entities
         public Guid Id { get; set; } = Guid.NewGuid();
 
         [Column("user_id")]
-        public Guid UserId { get; set; }
+        public required Guid UserId { get; set; }
 
         [Column("status")]
         public string? Status { get; set; }
