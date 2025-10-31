@@ -135,7 +135,6 @@ namespace LunkvayAPI.Avatars.Services
                 );
             }
 
-            // Проверяем пользователя
             ServiceResult<UserDTO> userResult = await _userService.GetUserById(userId);
             if (!userResult.IsSuccess || userResult.Result is null || userResult.Result.UserName is null)
                 return ServiceResult<byte[]>.Failure(
