@@ -12,7 +12,7 @@ namespace LunkvayAPI.Data.Entities
         public required Guid UserId { get; set; }
 
         [Column("file_name")]
-        public required string FileName { get; set; } //user123.png
+        public required string FileName { get; set; }
 
         [Column("updated_at")]
         public DateTime UpdatedAt { get; set; }

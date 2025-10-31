@@ -132,25 +132,6 @@ namespace LunkvayAPI.Data
                 await context.SaveChangesAsync();
             }
 
-            if (!await context.Avatars.AnyAsync() && usersExist)
-            {
-                DbSet<User> users = context.Users;
-
-                userRyan ??= await users.FirstOrDefaultAsync(u => u.Email.Equals(ryanGoslingEmail))
-                    ?? throw new Exception(userException);
-                userRinat ??= await users.FirstOrDefaultAsync(u => u.Email.Equals(rinatGoslinovEmail))
-                    ?? throw new Exception(userException);
-                userChristian ??= await users.FirstOrDefaultAsync(u => u.Email.Equals(christianBaleEmail))
-                    ?? throw new Exception(userException);
-
-                await context.Avatars.AddRangeAsync(
-                    new Avatar { UserId = userRyan.Id, FileName = $"{userRyan.UserName}.jpeg" },
-                    new Avatar { UserId = userRinat.Id, FileName = $"{userRinat.UserName}.jpg" },
-                    new Avatar { UserId = userChristian.Id, FileName = $"{userChristian.UserName}.jpg" }
-                );
-                await context.SaveChangesAsync();
-            }
-
             if (!await context.Chats.AnyAsync() && usersExist)
             {
                 DbSet<User> users = context.Users;
