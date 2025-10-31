@@ -1,5 +1,7 @@
-﻿using LunkvayAPI.Avatars.Services;
+﻿using LunkvayAPI.Avatars.Models.Enums;
+using LunkvayAPI.Avatars.Services;
 using LunkvayAPI.Common.Results;
+using LunkvayAPI.Common.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -63,15 +65,15 @@ namespace LunkvayAPI.Avatars.Controllers
             Guid userId = (Guid)HttpContext.Items["UserId"]!;
 
             if (avatarFile == null || avatarFile.Length == 0)
-                return BadRequest("Файл не предоставлен");
+                return BadRequest(AvatarsErrorCode.FileIsNull.GetDescription());
 
             if (avatarFile.Length > 5 * 1024 * 1024)
-                return BadRequest("Файл слишком большой. Максимальный размер: 5MB");
+                return BadRequest(AvatarsErrorCode.FileLengthLimit.GetDescription());
 
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp" };
             var fileExtension = Path.GetExtension(avatarFile.FileName).ToLowerInvariant();
             if (!allowedExtensions.Contains(fileExtension))
-                return BadRequest("Недопустимый формат файла. Разрешены: JPG, PNG, GIF, BMP");
+                return BadRequest(AvatarsErrorCode.FileFormatInvalid.GetDescription());
 
             try
             {
