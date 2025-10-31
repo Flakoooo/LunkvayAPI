@@ -6,6 +6,6 @@ namespace LunkvayAPI.Friends.Models.Requests
     public class UpdateFriendshipStatusRequest
     {
         [Required]
-        public FriendshipStatus Status { get; init; }
+        public required FriendshipStatus Status { get; init; }
     }
 }

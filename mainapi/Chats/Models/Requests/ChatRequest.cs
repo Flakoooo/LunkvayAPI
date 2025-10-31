@@ -9,9 +9,9 @@ namespace LunkvayAPI.Chats.Models.Requests
         public string? Name { get; init; }
 
         [Required]
-        public ChatType Type { get; init; }
+        public required ChatType Type { get; init; }
 
         [Required]
-        public IEnumerable<UserDTO> Members { get; init; } = [];
+        public required IEnumerable<UserDTO> Members { get; init; }
     }
 }

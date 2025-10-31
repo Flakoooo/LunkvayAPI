@@ -5,9 +5,9 @@ namespace LunkvayAPI.Friends.Models.Requests
     public class CreateFriendshipLabelRequest
     {
         [Required]
-        public Guid FriendshipId { get; init; }
+        public required Guid FriendshipId { get; init; }
 
         [Required]
-        public string Label { get; init; } = string.Empty;
+        public required string Label { get; init; }
     }
 }

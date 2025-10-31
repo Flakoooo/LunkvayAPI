@@ -6,10 +6,10 @@ namespace LunkvayAPI.Auth.Models.Requests
     {
         [Required(ErrorMessage = "Почта не может быть пустой")]
         [EmailAddress(ErrorMessage = "Неверный формат почты")]
-        public string Email { get; set; } = string.Empty;
+        public required string Email { get; set; }
 
         [Required(ErrorMessage = "Пароль не может быть пустым")]
         [DataType(DataType.Password)]
-        public string Password { get; set; } = string.Empty;
+        public required string Password { get; set; }
     }
 }
