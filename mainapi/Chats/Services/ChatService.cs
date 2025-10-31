@@ -56,6 +56,7 @@ namespace LunkvayAPI.Chats.Services
                     : c.Name,
                 LastMessage = c.LastMessage != null ? new ChatMessageDTO
                 {
+                    Id = c.Id,
                     Message = c.LastMessage.Message,
                     CreatedAt = c.LastMessage.CreatedAt,
                     SystemMessageType = c.LastMessage.SystemMessageType,
@@ -103,7 +104,7 @@ namespace LunkvayAPI.Chats.Services
 
             foreach (UserDTO member in chatRequest.Members)
             {
-                if (member.Id is not null)
+                if (member.Id != Guid.Empty)
                 {
                     ChatMember chatMember = new()
                     {

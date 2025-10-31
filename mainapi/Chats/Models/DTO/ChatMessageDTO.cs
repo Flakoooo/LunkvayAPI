@@ -6,7 +6,7 @@ namespace LunkvayAPI.Chats.Models.DTO
     public record class ChatMessageDTO
     {
         public required Guid Id { get; set; }
-        public required UserDTO Sender { get; set; }
+        public UserDTO? Sender { get; set; }
         public required SystemMessageType SystemMessageType { get; set; }
         public required string Message { get; set; }
         public bool? IsEdited { get; set; }
