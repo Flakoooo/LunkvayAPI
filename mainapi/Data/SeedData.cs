@@ -37,6 +37,46 @@ namespace LunkvayAPI.Data
                 usersExist = true;
             }
 
+            if (usersExist)
+            {
+                DbSet<User> users = context.Users;
+                userRyan ??= await users.FirstOrDefaultAsync(u => u.Email.Equals(ryanGoslingEmail))
+                    ?? throw new Exception(userException);
+                userRinat ??= await users.FirstOrDefaultAsync(u => u.Email.Equals(rinatGoslinovEmail))
+                    ?? throw new Exception(userException);
+                userChristian ??= await users.FirstOrDefaultAsync(u => u.Email.Equals(christianBaleEmail))
+                    ?? throw new Exception(userException);
+                userTom ??= await users.FirstOrDefaultAsync(u => u.Email.Equals(tomHardyEmail))
+                    ?? throw new Exception(userException);
+                userJake ??= await users.FirstOrDefaultAsync(u => u.Email.Equals(jakeGyllenhaalEmail))
+                    ?? throw new Exception(userException);
+
+                var profilesToEnsure = new[]
+                {
+                    new { User = userRyan, Status = "Будь настоящим примером для подражания,будь настоящим героем", About = "A Real Hero" },
+                    new { User = userRinat, Status = "Будь настоящим примером для героя,будь настоящим подражанием", About = "A Real Being" },
+                    new { User = userChristian, Status = "Perfet Girl", About = "Бэтмэн, гонщик, психопат" },
+                    new { User = userTom, Status = "Я сюда припёрся, чтобы нормально пострелять! Ждал нормальной перестрелки с нормальными мужиками", About = "Безумный веном Бэйн" },
+                    new { User = userJake, Status = "Истинная цена 'чего-то' сводится к тому, сколько за 'что-то' готовы дать.", About = "Я швед, я Йилленхолл" }
+                };
+
+                foreach (var profileData in profilesToEnsure)
+                {
+                    bool profileExists = await context.Profiles.AnyAsync(p => p.UserId == profileData.User.Id);
+                    if (!profileExists)
+                    {
+                        await context.Profiles.AddAsync(new Profile
+                        {
+                            UserId = profileData.User.Id,
+                            Status = profileData.Status,
+                            About = profileData.About
+                        });
+                    }
+                }
+
+                await context.SaveChangesAsync();
+            }
+
             if (!await context.Friendships.AnyAsync() && usersExist)
             {
                 DbSet<User> users = context.Users;
@@ -107,22 +147,6 @@ namespace LunkvayAPI.Data
                     new Avatar { UserId = userRyan.Id, FileName = $"{userRyan.UserName}.jpeg" },
                     new Avatar { UserId = userRinat.Id, FileName = $"{userRinat.UserName}.jpg" },
                     new Avatar { UserId = userChristian.Id, FileName = $"{userChristian.UserName}.jpg" }
-                );
-                await context.SaveChangesAsync();
-            }
-
-            if (!await context.Profiles.AnyAsync() && usersExist)
-            {
-                DbSet<User> users = context.Users;
-                userRyan ??= await users.FirstOrDefaultAsync(u => u.Email.Equals(ryanGoslingEmail))
-                    ?? throw new Exception(userException);
-                await context.Profiles.AddRangeAsync(
-                    new Profile
-                    {
-                        UserId = userRyan.Id,
-                        Status = "Зачем меня просят рассказать о слове 'себе'?",
-                        About = "Зачем меня просят рассказать о слове 'себе'?"
-                    }
                 );
                 await context.SaveChangesAsync();
             }
