@@ -2,5 +2,6 @@
 {
     public class UpdateChatRequest
     {
+        public string? Name { get; set; }
     }
 }

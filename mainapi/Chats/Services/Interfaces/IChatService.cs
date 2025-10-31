@@ -8,5 +8,9 @@ namespace LunkvayAPI.Chats.Services.Interfaces
     {
         Task<ServiceResult<List<ChatDTO>>> GetRooms(Guid userId);
         Task<ServiceResult<ChatDTO>> CreateRoom(ChatRequest chatRequest, Guid? creatorId = null);
+        Task<ServiceResult<ChatDTO>> UpdateChat(
+            Guid creatorId, Guid chatId, UpdateChatRequest request
+        );
+        Task<ServiceResult<bool>> DeleteChat(Guid creatorId, Guid chatId);
     }
 }

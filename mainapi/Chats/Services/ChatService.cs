@@ -7,17 +7,20 @@ using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
+using LunkvayAPI.Users.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace LunkvayAPI.Chats.Services
 {
     public class ChatService(
         ILogger<ChatService> logger, 
-        LunkvayDBContext lunkvayDBContext
+        LunkvayDBContext lunkvayDBContext,
+        IUserService userService
     ) : IChatService
     {
         private readonly ILogger<ChatService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
+        private readonly IUserService _userService = userService;
 
         public async Task<ServiceResult<List<ChatDTO>>> GetRooms(Guid userId)
         {
@@ -56,7 +59,6 @@ namespace LunkvayAPI.Chats.Services
                     : c.Name,
                 LastMessage = c.LastMessage != null ? new ChatMessageDTO
                 {
-                    Id = c.Id,
                     Message = c.LastMessage.Message,
                     CreatedAt = c.LastMessage.CreatedAt,
                     SystemMessageType = c.LastMessage.SystemMessageType,
@@ -109,7 +111,7 @@ namespace LunkvayAPI.Chats.Services
                     ChatMember chatMember = new()
                     {
                         ChatId = chat.Id,
-                        MemberId = (Guid)member.Id,
+                        MemberId = member.Id,
                         Role = ChatMemberRole.Member
                     };
                     await _dbContext.AddAsync(chatMember);
@@ -118,13 +120,79 @@ namespace LunkvayAPI.Chats.Services
 
             await _dbContext.SaveChangesAsync();
 
+            // сделать уведомление в чате всех участников что чат создан
+
             return ServiceResult<ChatDTO>.Success(chatDTO);
         }
 
-        //public async Task<ServiceResult<ChatDTO>> UpdateChat()
-        //{
-            
-        //}
+        public async Task<ServiceResult<ChatDTO>> UpdateChat(
+            Guid creatorId, Guid chatId, UpdateChatRequest request
+        )
+        {
+            if (creatorId == Guid.Empty)
+                return ServiceResult<ChatDTO>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            if (chatId == Guid.Empty)
+                return ServiceResult<ChatDTO>.Failure("Id чата не может быть пустым");
+
+            var chat = await _dbContext.Chats
+                .FirstOrDefaultAsync(c => c.CreatorId == creatorId && c.Id == chatId);
+
+            if (chat is null)
+                return ServiceResult<ChatDTO>.Failure("Не удалось обновить чат");
+
+            if (chat.Type == ChatType.Personal)
+                return ServiceResult<ChatDTO>.Failure("Данный чат невозможно изменить");
+
+            bool hasChanges = false;
+            if (request.Name is not null)
+            {
+                chat.Name = request.Name;
+                hasChanges = true;
+            }
+
+            if (hasChanges) await _dbContext.SaveChangesAsync();
+
+            //сделать уведомление в чате что чат обновлен
+
+            var chatDTO = new ChatDTO
+            {
+                Id = chat.Id,
+                Name = chat.Name,
+            };
+
+            var chatMessage = await _dbContext.ChatMessages
+                .LastOrDefaultAsync(cm => cm.ChatId == chat.Id);
+
+            if (chatMessage is not null)
+            {
+                ServiceResult<UserDTO> userResult
+                    = await _userService.GetUserById(chatMessage.SenderId);
+
+                if (!userResult.IsSuccess || userResult.Result is null)
+                    return ServiceResult<ChatDTO>.Failure(
+                        ErrorCode.InternalServerError.GetDescription()
+                    );
+
+                var user = userResult.Result;
+                bool currentUserCheck = user.Id == creatorId;
+                user.FirstName = currentUserCheck ? "Вы" : user.FirstName;
+                user.LastName = !string.IsNullOrEmpty(user.LastName)
+                    ? currentUserCheck ? null : user.LastName[0].ToString()
+                    : null;
+
+                var lastMessage = new ChatMessageDTO
+                {
+                    Id = chatMessage.Id,
+                    Sender = user,
+                    SystemMessageType = SystemMessageType.None,
+                    Message = chatMessage.Message,
+                    CreatedAt = chatMessage.CreatedAt
+                };
+            }
+
+            return ServiceResult<ChatDTO>.Success(chatDTO);
+        }
 
         public async Task<ServiceResult<bool>> DeleteChat(Guid creatorId, Guid chatId)
         {
