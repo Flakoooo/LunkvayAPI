@@ -74,7 +74,7 @@ namespace LunkvayAPI
 
             services.AddCors(
                 options => options.AddPolicy("Policy", policy => 
-                    policy.WithOrigins("http://localhost:8080", "http://127.0.0.1:8080")
+                    policy.WithOrigins("http://localhost:8080", "http://127.0.0.1:8080", "https://lexunok.github.io")
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials()
@@ -88,6 +88,7 @@ namespace LunkvayAPI
             services.AddScoped<IProfileService, ProfileService>();
             //Avatars
             services.AddScoped<IAvatarService, AvatarService>();
+            services.AddHttpClient<IAvatarService, AvatarService>();
             //Friends
             services.AddScoped<IFriendshipsService, FriendshipsService>();
             services.AddScoped<IFriendshipLabelsService, FriendshipLabelsService>();
