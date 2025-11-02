@@ -25,10 +25,11 @@ namespace LunkvayAPI.Avatars.Services
         private readonly HttpClient _httpClient = httpClient;
         private readonly IUserService _userService = userService;
 
+        private const string DEFAULT_IMAGE_PREFIX = "user_avatar_";
         private const string IMGDB_API_KEY = "b2c5445f5bb24a4908ef0067129d6315";
         private const string DEFAULT_IMGDB_UPLOAD_URL = "https://api.imgbb.com/1/upload";
         private const string DEFAULT_IMGDB_UPLOAD_URL_KEY_PARAM = $"?key={IMGDB_API_KEY}";
-        private const string DEFAULT_AVATAR_URL = "https://i.ibb.co/67xWgZSb/default.webp";
+        private const string DEFAULT_AVATAR_URL = "https://i.ibb.co/67xWgZSb/default-user.webp";
 
         public async Task<ServiceResult<string>> GetUserImgDBAvatar(Guid userId)
         {
@@ -81,7 +82,7 @@ namespace LunkvayAPI.Avatars.Services
                 var form = new MultipartFormDataContent
                 {
                     { new ByteArrayContent(webpData), "image" },
-                    { new StringContent(user.Id.ToString()), "name" }
+                    { new StringContent($"{DEFAULT_IMAGE_PREFIX}{user.Id}"), "name" }
                 };
 
                 var response = await _httpClient.PostAsync(uploadUrl, form);
