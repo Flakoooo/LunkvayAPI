@@ -11,11 +11,17 @@ namespace LunkvayAPI.Data.Entities
         [Column("chat_id")]
         public required Guid ChatId { get; set; }
 
-        [Column("file_name")]
-        public required string FileName { get; set; }
+        [Column("img_db_id")]
+        public required string ImgDBId { get; set; }
+
+        [Column("img_db_url")]
+        public required string ImgDBUrl { get; set; }
+
+        [Column("img_db_delete_url")]
+        public required string ImgDBDeleteUrl { get; set; }
 
         [Column("updated_at")]
-        public DateTime UpdateAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
 
 
 

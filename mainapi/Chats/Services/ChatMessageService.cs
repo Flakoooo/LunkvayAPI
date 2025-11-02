@@ -15,18 +15,18 @@ namespace LunkvayAPI.Chats.Services
 {
     public class ChatMessageService(
         ILogger<ChatMessageService> logger,
-        IUserService userService,
         LunkvayDBContext lunkvayDBContext,
-        IChatService chatService,
-        IChatMemberService chatMemberService,
+        IUserService userService,
+        IChatSystemService chatService,
+        IChatMemberSystemService chatMemberService,
         IChatNotificationService chatNotificationService
     ) : IChatMessageService
     {
         private readonly ILogger<ChatMessageService> _logger = logger;
-        private readonly IUserService _userService = userService;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
-        private readonly IChatService _chatService = chatService;
-        private readonly IChatMemberService _chatMemberService = chatMemberService;
+        private readonly IUserService _userService = userService;
+        private readonly IChatSystemService _chatService = chatService;
+        private readonly IChatMemberSystemService _chatMemberService = chatMemberService;
         private readonly IChatNotificationService _chatNotificationService = chatNotificationService;
 
         private static ChatMessageDTO MapToDto(
@@ -43,27 +43,6 @@ namespace LunkvayAPI.Chats.Services
             UpdatedAt = message.UpdatedAt,
             IsMyMessage = isCurrentUser
         };
-
-        public async Task<ServiceResult<ChatMessage>> CreateSystemChatMessage(
-            Guid chatId, string message, SystemMessageType type
-        )
-        {
-            var newMessage = new ChatMessage
-            {
-                ChatId = chatId,
-                Message = message,
-                SystemMessageType = type,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _dbContext.ChatMessages.AddAsync(newMessage);
-
-            await _dbContext.SaveChangesAsync();
-
-            await _chatNotificationService.SendMessage(chatId, MapToDto(newMessage, null, false));
-
-            return ServiceResult<ChatMessage>.Success(newMessage);
-        }
 
 
         public async Task<ServiceResult<List<ChatMessageDTO>>> GetChatMessages(Guid userId, Guid chatId, int page, int pageSize)

@@ -16,15 +16,15 @@ namespace LunkvayAPI.Chats.Services
         ILogger<ChatService> logger, 
         LunkvayDBContext lunkvayDBContext,
         IUserService userService,
-        IChatMemberService chatMemberService,
-        IChatMessageService chatMessageService
+        IChatMemberSystemService chatMemberService,
+        IChatMessageSystemService chatMessageService
     ) : IChatService
     {
         private readonly ILogger<ChatService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
         private readonly IUserService _userService = userService;
-        private readonly IChatMemberService _chatMemberService = chatMemberService;
-        private readonly IChatMessageService _chatMessageService = chatMessageService;
+        private readonly IChatMemberSystemService _chatMemberService = chatMemberService;
+        private readonly IChatMessageSystemService _chatMessageService = chatMessageService;
 
         private static ChatDTO MapToChatDto(Chat chat, Guid currentUserId)
             => new()
@@ -92,41 +92,6 @@ namespace LunkvayAPI.Chats.Services
                 return user.LastName;
 
             return user.UserName ?? "Пользователь";
-        }
-
-        public async Task<ServiceResult<Chat>> GetChatBySystem(Guid chatId)
-        {
-            if (chatId == Guid.Empty)
-                return ServiceResult<Chat>.Failure("Id чата не может быть пустым");
-
-            var chat = await _dbContext.Chats
-                .FirstOrDefaultAsync(c => c.Id == chatId);
-
-            if (chat is null)
-                return ServiceResult<Chat>.Failure("Id чат не найден");
-
-            return ServiceResult<Chat>.Success(chat);
-        }
-
-        public async Task<ServiceResult<Chat>> UpdateChatLastMessageBySystem(
-            Guid chatId, Guid lastMessageId
-        )
-        {
-            if (chatId == Guid.Empty)
-                return ServiceResult<Chat>.Failure("Id чата не может быть пустым");
-
-            var chat = await _dbContext.Chats
-                .FirstOrDefaultAsync(c => c.Id == chatId);
-
-            if (chat is null)
-                return ServiceResult<Chat>.Failure("Id чат не найден");
-
-            chat.LastMessageId = lastMessageId;
-            chat.UpdatedAt = DateTime.UtcNow;
-
-            await _dbContext.SaveChangesAsync();
-
-            return ServiceResult<Chat>.Success(chat);
         }
 
 

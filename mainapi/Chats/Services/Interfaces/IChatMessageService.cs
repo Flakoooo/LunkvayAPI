@@ -1,18 +1,11 @@
 ﻿using LunkvayAPI.Chats.Models.DTO;
 using LunkvayAPI.Chats.Models.Requests;
 using LunkvayAPI.Common.Results;
-using LunkvayAPI.Data.Entities;
-using LunkvayAPI.Data.Enums;
 
 namespace LunkvayAPI.Chats.Services.Interfaces
 {
     public interface IChatMessageService
     {
-        Task<ServiceResult<ChatMessage>> CreateSystemChatMessage(
-            Guid chatId, string message, SystemMessageType type
-        );
-
-
         Task<ServiceResult<List<ChatMessageDTO>>> GetChatMessages(
             Guid userId, Guid chatId, int page = 1, int pageSize = 100
         );

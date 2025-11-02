@@ -99,10 +99,14 @@ namespace LunkvayAPI
             services.AddScoped<IFriendshipLabelsService, FriendshipLabelsService>();
             //Chats
             services.AddScoped<IChatNotificationService, ChatNotificationService>();
-            services.AddScoped<IChatService, ChatService>();
             services.AddScoped<IChatImageService, ChatImageService>();
+            services.AddHttpClient<IChatImageService, ChatImageService>();
+            services.AddScoped<IChatService, ChatService>();
+            services.AddScoped<IChatSystemService, ChatSystemService>();
             services.AddScoped<IChatMemberService, ChatMemberService>();
+            services.AddScoped<IChatMemberSystemService, ChatMemberSystemService>();
             services.AddScoped<IChatMessageService, ChatMessageService>();
+            services.AddScoped<IChatMessageSystemService, ChatMessageSystemService>();
 
             services.AddSignalR();
 
