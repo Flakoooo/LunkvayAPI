@@ -4,14 +4,12 @@ using System.ComponentModel.DataAnnotations;
 
 namespace LunkvayAPI.Chats.Models.Requests
 {
-    public class ChatRequest
+    public class CreateGroupChatRequest
     {
-        public string? Name { get; init; }
+        [Required]
+        public required string Name { get; init; }
 
         [Required]
-        public required ChatType Type { get; init; }
-
-        [Required]
-        public required IEnumerable<UserDTO> Members { get; init; }
+        public required IList<UserDTO> Members { get; init; }
     }
 }

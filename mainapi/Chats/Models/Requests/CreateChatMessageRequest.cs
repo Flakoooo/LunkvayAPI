@@ -2,12 +2,12 @@
 
 namespace LunkvayAPI.Chats.Models.Requests
 {
-    public class ChatMessageRequest
+    public class CreateChatMessageRequest
     {
         [Required]
-        public required Guid ChatId { get; set; }
+        public required Guid ChatId { get; init; }
 
         [Required]
-        public required string Message { get; set; }
+        public required string Message { get; init; }
     }
 }

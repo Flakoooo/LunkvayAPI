@@ -3,87 +3,466 @@ using LunkvayAPI.Chats.Models.Requests;
 using LunkvayAPI.Chats.Services.Interfaces;
 using LunkvayAPI.Common.DTO;
 using LunkvayAPI.Common.Results;
+using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Users.Services;
 using Microsoft.EntityFrameworkCore;
-using System.Net;
+using System.Data;
+using System.Linq.Expressions;
 
 namespace LunkvayAPI.Chats.Services
 {
     public class ChatMemberService(
+        ILogger<ChatMemberService> logger,
         LunkvayDBContext lunkvayDBContext,
         IUserService userService,
-        IChatNotificationService chatNotificationService
+        IChatMessageService chatMessageService
     ) : IChatMemberService
     {
+        private readonly ILogger<ChatMemberService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
         private readonly IUserService _userService = userService;
-        private readonly IChatNotificationService _chatNotificationService = chatNotificationService;
+        private readonly IChatMessageService _chatMessageService = chatMessageService;
+        
 
-        public async Task<ServiceResult<IEnumerable<ChatMemberDTO>>> GetChatMembers(Guid chatId)
+        private async Task<ServiceResult<bool>> ValidateMemberUpdateRights(
+            Guid initiatorId, Guid chatId,
+            ChatMember targetMember, UpdateChatMemberRequest request
+        )
         {
-            List<ChatMemberDTO> chatMembers = await _dbContext.ChatMembers
-                .Where(cm => cm.ChatId == chatId)
-                .Select(cm => new ChatMemberDTO
-                {
-                    Id = cm.Id,
-                    Member = cm.Member != null ? new UserDTO
-                    {
-                        Id = cm.Member.Id,
-                        UserName = cm.Member.UserName,
-                        Email = cm.Member.Email,
-                        FirstName = cm.Member.FirstName,
-                        LastName = cm.Member.LastName,
-                        CreatedAt = cm.Member.CreatedAt,
-                        IsDeleted = cm.Member.IsDeleted,
-                        LastLogin = cm.Member.LastLogin,
-                        IsOnline = cm.Member.IsOnline,
-                    } : null,
-                    MemberName = cm.MemberName,
-                    Role = cm.Role,
-                })
-                .ToListAsync();
-
-            return ServiceResult<IEnumerable<ChatMemberDTO>>.Success(chatMembers);
-        }
-
-        public async Task<ServiceResult<ChatMemberDTO>> CreateMember(ChatMemberRequest chatMemberRequest)
-        {
-            UserDTO member;
-            ServiceResult<UserDTO> memberResult = await _userService.GetUserById(chatMemberRequest.MemberId);
-            if (memberResult.IsSuccess && memberResult.Result is not null)
-                member = memberResult.Result;
-            else return ServiceResult<ChatMemberDTO>.Failure(
-                memberResult.Error ?? "Непредвиденная ошибка",
-                HttpStatusCode.InternalServerError
-            );
-
-            ChatMember chatMember = new()
+            if (initiatorId == targetMember.MemberId)
             {
-                ChatId = chatMemberRequest.ChatId,
-                MemberId = chatMemberRequest.MemberId,
-                MemberName = null,
-                Role = ChatMemberRole.Member
-            };
-            await _dbContext.AddAsync(chatMember);
-            await _dbContext.SaveChangesAsync();
+                if (request.NewRole.HasValue && request.NewRole.Value != targetMember.Role)
+                    return ServiceResult<bool>.Failure("Вы не можете изменить свою роль");
 
-            if (chatMember.Id != Guid.Empty)
-                await _chatNotificationService.UserJoined(
-                    chatMemberRequest.ChatId, $"{member.FirstName} {member.LastName}"
+                return ServiceResult<bool>.Success(true);
+            }
+
+            var initiator = await _dbContext.ChatMembers
+                .FirstOrDefaultAsync(cm =>
+                    cm.ChatId == chatId
+                    && cm.MemberId == initiatorId
+                    && !cm.IsDeleted
                 );
 
-            ChatMemberDTO chatMemberDTO = new()
+            if (initiator == null)
+                return ServiceResult<bool>.Failure("Недостаточно прав");
+
+            if (initiator.Role == ChatMemberRole.Owner)
+                return ServiceResult<bool>.Success(true);
+
+            if (initiator.Role == ChatMemberRole.Administrator)
             {
-                Id = chatMember.Id,
-                Member = member,
-                MemberName = chatMember.MemberName,
-                Role = chatMember.Role,
+                if (targetMember.Role == ChatMemberRole.Member)
+                    return ServiceResult<bool>.Success(true);
+
+                return ServiceResult<bool>.Failure("Вы не можете изменять администраторов и владельца");
+            }
+
+            return ServiceResult<bool>.Failure("Недостаточно прав");
+        }
+
+        private async Task<ServiceResult<bool>> ValidateMemberDeleteRights(Guid initiatorId, Guid chatId, ChatMember targetMember)
+        {
+            if (initiatorId == targetMember.MemberId)
+                return ServiceResult<bool>.Success(true);
+
+            var initiator = await _dbContext.ChatMembers
+                .FirstOrDefaultAsync(cm =>
+                    cm.ChatId == chatId
+                    && cm.MemberId == initiatorId
+                    && !cm.IsDeleted
+                );
+
+            if (initiator == null)
+                return ServiceResult<bool>.Failure("Недостаточно прав");
+
+            if (initiator.Role == ChatMemberRole.Owner)
+                return ServiceResult<bool>.Success(true);
+
+            if (initiator.Role == ChatMemberRole.Administrator)
+            {
+                if (targetMember.Role == ChatMemberRole.Member)
+                    return ServiceResult<bool>.Success(true);
+
+                return ServiceResult<bool>.Failure("Вы не можете исключать администраторов и владельца");
+            }
+
+            return ServiceResult<bool>.Failure("Недостаточно прав");
+        }
+
+        private async Task<ServiceResult<bool>> HandleOwnerLeaving(ChatMember ownerMember)
+        {
+            var newOwner = await _dbContext.ChatMembers
+                .Where(cm =>
+                    cm.ChatId == ownerMember.ChatId
+                    && cm.MemberId != ownerMember.MemberId
+                    && !cm.IsDeleted
+                    && cm.Role == ChatMemberRole.Administrator)
+                .OrderBy(cm => cm.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            newOwner ??= await _dbContext.ChatMembers
+                .Where(cm =>
+                    cm.ChatId == ownerMember.ChatId
+                    && cm.MemberId != ownerMember.MemberId
+                    && !cm.IsDeleted
+                    && cm.Role == ChatMemberRole.Member)
+                .OrderBy(cm => cm.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (newOwner != null)
+            {
+                newOwner.Role = ChatMemberRole.Owner;
+                return ServiceResult<bool>.Success(true);
+            }
+
+            ownerMember.Chat!.IsDeleted = true;
+            ownerMember.Chat.DeletedAt = DateTime.UtcNow;
+
+            return ServiceResult<bool>.Success(true);
+        }
+
+        private async Task<ServiceResult<bool>> ValidateRoleChange(Guid initiatorId, Guid chatId,
+            ChatMember targetMember, ChatMemberRole newRole)
+        {
+            var initiator = await _dbContext.ChatMembers
+                .FirstOrDefaultAsync(cm =>
+                    cm.ChatId == chatId
+                    && cm.MemberId == initiatorId
+                    && !cm.IsDeleted
+                    && cm.Role == ChatMemberRole.Owner
+                );
+
+            if (initiator == null)
+                return ServiceResult<bool>.Failure("Только владелец может изменять роли");
+
+            if (targetMember.Role == ChatMemberRole.Owner && newRole != ChatMemberRole.Owner)
+                return ServiceResult<bool>.Failure("Нельзя изменить роль владельца");
+
+            return ServiceResult<bool>.Success(true);
+        }
+
+        private static ChatMemberDTO MapToDto(ChatMember chatMember) => new()
+        {
+            Id = chatMember.Id,
+            Member = chatMember.Member != null ? new UserDTO
+            {
+                Id = chatMember.Member.Id,
+                UserName = chatMember.Member.UserName,
+                Email = chatMember.Member.Email,
+                FirstName = chatMember.Member.FirstName,
+                LastName = chatMember.Member.LastName,
+                CreatedAt = chatMember.Member.CreatedAt,
+                IsDeleted = chatMember.Member.IsDeleted,
+                LastLogin = chatMember.Member.LastLogin,
+                IsOnline = chatMember.Member.IsOnline,
+            } : null,
+            MemberName = chatMember.MemberName,
+            Role = chatMember.Role
+        };
+
+        private static string FormatUserName(UserDTO? user)
+        {
+            if (user == null) return "Пользователь";
+
+            if (!string.IsNullOrWhiteSpace(user.FirstName) && !string.IsNullOrWhiteSpace(user.LastName))
+                return $"{user.FirstName} {user.LastName}";
+
+            if (!string.IsNullOrWhiteSpace(user.FirstName))
+                return user.FirstName;
+
+            if (!string.IsNullOrWhiteSpace(user.LastName))
+                return user.LastName;
+
+            return user.UserName ?? "Пользователь";
+        }
+
+        public async Task<bool> ExistAnyChatMembersBySystem(Expression<Func<ChatMember, bool>> predicate)
+            => await _dbContext.ChatMembers.AsNoTracking().AnyAsync(predicate);
+
+
+        public async Task<ServiceResult<List<ChatMemberDTO>>> GetChatMembers(Guid chatId)
+        {
+            try
+            {
+                var chatExists = await _dbContext.Chats
+                    .AnyAsync(c => c.Id == chatId && !c.IsDeleted);
+
+                if (!chatExists)
+                    return ServiceResult<List<ChatMemberDTO>>.Failure("Чат не найден");
+
+                var chatMembers = await _dbContext.ChatMembers
+                    .AsNoTracking()
+                    .Where(cm => cm.ChatId == chatId && !cm.IsDeleted)
+                    .Include(cm => cm.Member)
+                    .OrderByDescending(cm => cm.Role)
+                    .ThenBy(cm => cm.CreatedAt)
+                    .Select(cm => MapToDto(cm))
+                    .ToListAsync();
+
+                return ServiceResult<List<ChatMemberDTO>>.Success(chatMembers);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при получении участников чата {ChatId}", chatId);
+                return ServiceResult<List<ChatMemberDTO>>.Failure("Ошибка при получении участников чата");
+            }
+        }
+
+        public async Task<ServiceResult<ChatMember>> CreateMemberBySystem(
+            Guid chatId, Guid memberId, ChatMemberRole role
+        )
+        {
+            if (chatId == Guid.Empty)
+                return ServiceResult<ChatMember>.Failure("Id чата не может быть пустым");
+
+            if (memberId == Guid.Empty)
+                return ServiceResult<ChatMember>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            var chatMember 
+                = new ChatMember { ChatId = chatId, MemberId = memberId, Role = role };
+
+            await _dbContext.ChatMembers.AddAsync(chatMember);
+
+            await _dbContext.SaveChangesAsync();
+
+            return ServiceResult<ChatMember>.Success(chatMember);
+        }
+
+        public async Task<ServiceResult<List<ChatMember>>> CreatePersonalMembersBySystem(
+            Guid chatId, Guid memberId1, Guid memberId2
+        )
+        {
+            if (chatId == Guid.Empty)
+                return ServiceResult<List<ChatMember>>.Failure("Id чата не может быть пустым");
+
+            if (memberId1 == Guid.Empty || memberId2 == Guid.Empty)
+                return ServiceResult<List<ChatMember>>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            var members = new List<ChatMember>()
+            {
+                new()
+                {
+                    ChatId = chatId,
+                    MemberId = memberId1,
+                    Role = ChatMemberRole.Member
+                },
+                new()
+                {
+                    ChatId = chatId,
+                    MemberId = memberId2,
+                    Role = ChatMemberRole.Member
+                }
             };
 
-            return ServiceResult<ChatMemberDTO>.Success(chatMemberDTO);
+            await _dbContext.ChatMembers.AddRangeAsync(members);
+
+            await _dbContext.SaveChangesAsync();
+
+            return ServiceResult<List<ChatMember>>.Success(members);
+        }
+
+        public async Task<ServiceResult<List<ChatMember>>> CreateGroupMembersBySystem(
+            Guid chatId, Guid creatorId, IList<UserDTO> members
+        )
+        {
+            var chatMembers = new List<ChatMember>();
+
+            if (members.Any(u => u.Id == creatorId))
+                members.Remove(members.First(u => u.Id == creatorId));
+
+            chatMembers.Add(new ChatMember
+            {
+                ChatId = chatId,
+                MemberId = creatorId,
+                Role = ChatMemberRole.Owner
+            });
+
+            foreach (var member in members.Where(m => m.Id != creatorId))
+            {
+                chatMembers.Add(new ChatMember
+                {
+                    ChatId = chatId,
+                    MemberId = member.Id,
+                    Role = ChatMemberRole.Member
+                });
+            }
+
+            await _dbContext.ChatMembers.AddRangeAsync(chatMembers);
+            await _dbContext.SaveChangesAsync();
+
+            return ServiceResult<List<ChatMember>>.Success(chatMembers);
+        }
+
+        public async Task<ServiceResult<ChatMemberDTO>> CreateMember(Guid initiatorId, CreateChatMemberRequest request)
+        {
+            if (initiatorId == Guid.Empty || request.MemberId == Guid.Empty)
+                return ServiceResult<ChatMemberDTO>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            var initiatorMembership = await _dbContext.ChatMembers
+                .FirstOrDefaultAsync(cm =>
+                    cm.ChatId == request.ChatId
+                    && cm.MemberId == initiatorId
+                    && !cm.IsDeleted
+                );
+
+            if (initiatorMembership == null)
+                return ServiceResult<ChatMemberDTO>.Failure("Вы не являетесь участником этого чата");
+
+            var chat = await _dbContext.Chats
+                .FirstOrDefaultAsync(c => c.Id == request.ChatId && !c.IsDeleted);
+
+            if (chat?.Type == ChatType.Personal)
+                return ServiceResult<ChatMemberDTO>.Failure("Нельзя добавить пользователя в личный чат");
+
+            ServiceResult<UserDTO> userResult = await _userService.GetUserById(request.MemberId);
+            var user = userResult.Result;
+
+            // Проверяем, не является ли пользователь уже участником
+            var existingMember = await _dbContext.ChatMembers
+                .FirstOrDefaultAsync(cm =>
+                    cm.ChatId == request.ChatId
+                    && cm.MemberId == request.MemberId
+                );
+
+            if (existingMember != null)
+            {
+                if (!existingMember.IsDeleted)
+                    return ServiceResult<ChatMemberDTO>.Failure("Пользователь уже является участником чата");
+
+                existingMember.IsDeleted = false;
+                existingMember.DeletedAt = null;
+                existingMember.UpdatedAt = DateTime.UtcNow;
+                existingMember.Role = ChatMemberRole.Member;
+
+                await _dbContext.SaveChangesAsync();
+
+                await _chatMessageService.CreateSystemChatMessage(
+                    request.ChatId, $"{FormatUserName(user)} вернулся в чат", SystemMessageType.UserRejoined
+                );
+
+                var restoredMember = await _dbContext.ChatMembers
+                    .Include(cm => cm.Member)
+                    .FirstOrDefaultAsync(cm => cm.Id == existingMember.Id);
+
+                return ServiceResult<ChatMemberDTO>.Success(MapToDto(restoredMember!));
+            }
+
+            var chatMember = new ChatMember
+            {
+                ChatId = request.ChatId,
+                MemberId = request.MemberId,
+                Role = ChatMemberRole.Member
+            };
+
+            await _dbContext.ChatMembers.AddAsync(chatMember);
+            await _dbContext.SaveChangesAsync();
+
+            await _chatMessageService.CreateSystemChatMessage(
+                request.ChatId, $"{FormatUserName(user)} присоединился к чату", SystemMessageType.UserJoined
+            );
+
+            var newMember = await _dbContext.ChatMembers
+                .Include(cm => cm.Member)
+                .FirstOrDefaultAsync(cm => cm.Id == chatMember.Id);
+
+            return ServiceResult<ChatMemberDTO>.Success(MapToDto(newMember!));
+        }
+
+        public async Task<ServiceResult<ChatMemberDTO>> UpdateMember(Guid initiatorId, UpdateChatMemberRequest request)
+        {
+            if (initiatorId == Guid.Empty || request.MemberId == Guid.Empty)
+                return ServiceResult<ChatMemberDTO>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            if (request.ChatId == Guid.Empty)
+                return ServiceResult<ChatMemberDTO>.Failure("Id чата не может быть пустым");
+
+            var chatMember = await _dbContext.ChatMembers
+                .Include(cm => cm.Member)
+                .FirstOrDefaultAsync(cm =>
+                    cm.ChatId == request.ChatId
+                    && cm.MemberId == request.MemberId
+                    && !cm.IsDeleted
+                );
+
+            if (chatMember == null)
+                return ServiceResult<ChatMemberDTO>.Failure("Участник не найден");
+
+            var validationResult = await ValidateMemberUpdateRights(initiatorId, request.ChatId, chatMember, request);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<ChatMemberDTO>.Failure(validationResult.Error!);
+
+            bool hasChanges = false;
+
+            if (!string.IsNullOrWhiteSpace(request.NewMemberName) && request.NewMemberName != chatMember.MemberName)
+            {
+                chatMember.MemberName = request.NewMemberName.Trim();
+                hasChanges = true;
+            }
+
+            if (request.NewRole.HasValue && request.NewRole.Value != chatMember.Role)
+            {
+                var roleValidation = await ValidateRoleChange(initiatorId, request.ChatId, chatMember, request.NewRole.Value);
+                if (!roleValidation.IsSuccess)
+                    return ServiceResult<ChatMemberDTO>.Failure(roleValidation.Error!);
+
+                chatMember.Role = request.NewRole.Value;
+                hasChanges = true;
+            }
+
+            if (hasChanges)
+            {
+                chatMember.UpdatedAt = DateTime.UtcNow;
+                await _dbContext.SaveChangesAsync();
+            }
+
+            return ServiceResult<ChatMemberDTO>.Success(MapToDto(chatMember));
+        }
+
+        public async Task<ServiceResult<bool>> DeleteMember(Guid initiatorId, DeleteChatMemberRequest request)
+        {
+            if (initiatorId == Guid.Empty || request.MemberId == Guid.Empty)
+                return ServiceResult<bool>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            var chatMember = await _dbContext.ChatMembers
+                .Include(cm => cm.Chat)
+                .FirstOrDefaultAsync(cm =>
+                    cm.ChatId == request.ChatId
+                    && cm.MemberId == request.MemberId
+                    && !cm.IsDeleted
+                );
+
+            if (chatMember == null)
+                return ServiceResult<bool>.Failure("Участник не найден");
+
+            var validationResult = await ValidateMemberDeleteRights(initiatorId, request.ChatId, chatMember);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<bool>.Failure(validationResult.Error!);
+
+            if (chatMember.Role == ChatMemberRole.Owner)
+            {
+                var transferResult = await HandleOwnerLeaving(chatMember);
+                if (!transferResult.IsSuccess)
+                    return ServiceResult<bool>.Failure(transferResult.Error!);
+            }
+
+            chatMember.IsDeleted = true;
+            chatMember.MemberName = null;
+            chatMember.DeletedAt = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+
+            ServiceResult<UserDTO> userResult = await _userService.GetUserById(request.MemberId);
+            var user = userResult.Result;
+
+            await _chatMessageService.CreateSystemChatMessage(
+                request.ChatId, $"{FormatUserName(user)} покинул чат", SystemMessageType.UserLeft
+            );
+
+            return ServiceResult<bool>.Success(true);
         }
     }
 }

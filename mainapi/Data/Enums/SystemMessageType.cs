@@ -4,7 +4,9 @@
     {
         None,
         UserJoined,
+        UserRejoined,
         UserLeft,
-        ChatCreated
+        ChatCreated,
+        ChatUpdated
     }
 }

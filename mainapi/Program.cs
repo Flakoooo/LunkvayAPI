@@ -74,7 +74,12 @@ namespace LunkvayAPI
 
             services.AddCors(
                 options => options.AddPolicy("Policy", policy => 
-                    policy.WithOrigins("http://localhost:8080", "http://127.0.0.1:8080", "https://lexunok.github.io")
+                    policy.WithOrigins(
+                            "http://localhost:8080", 
+                            "http://127.0.0.1:8080", 
+                            "https://lexunok.github.io",
+                            "https://lunkvay.lex48949.workers.dev"
+                        )
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials()

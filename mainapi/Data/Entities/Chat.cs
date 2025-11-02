@@ -22,7 +22,7 @@ namespace LunkvayAPI.Data.Entities
         public required ChatType Type { get; set; }
 
         [Column("is_deleted")]
-        public bool IsDeleted { get; set; }
+        public bool IsDeleted { get; set; } = false;
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
