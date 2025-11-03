@@ -128,22 +128,46 @@ namespace LunkvayAPI.Chats.Services
             if (senderId == Guid.Empty)
                 return ServiceResult<ChatMessageDTO>.Failure(ErrorCode.UserIdRequired.GetDescription());
 
-            if (request.ChatId == Guid.Empty)
-                return ServiceResult<ChatMessageDTO>.Failure("Id чата не может быть пустым");
-
             if (string.IsNullOrWhiteSpace(request.Message))
                 return ServiceResult<ChatMessageDTO>.Failure("Сообщение не может быть пустым");
-
-            if (!await _chatMemberService.ExistAnyChatMembersBySystem(cm => cm.ChatId == request.ChatId && cm.MemberId == senderId && !cm.IsDeleted))
-                return ServiceResult<ChatMessageDTO>.Failure("Вы не являетесь участником этого чата", HttpStatusCode.Forbidden);
 
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
             try
             {
+                Guid chatId = request.ChatId;
+                // если сообщение НЕ в чат, а кому то КОНКРЕТНОМУ и оно НОВОЕ
+                if (request.ChatId == Guid.Empty && request.ReceiverId != Guid.Empty)
+                {
+                    var newChat = await _chatService.CreatePersonalChatBySystem(
+                        Guid.Empty, request.ReceiverId, ChatType.Personal, null
+                    );
+                    if (!newChat.IsSuccess || newChat.Result is null)
+                        throw new Exception(
+                            newChat.Error ?? ErrorCode.InternalServerError.GetDescription()
+                        );
+                    chatId = newChat.Result.Id;
+                    var newChatMembers = await _chatMemberService.CreatePersonalMembersBySystem(
+                        chatId, senderId, request.ReceiverId
+                    );
+                    if (!newChatMembers.IsSuccess)
+                        throw new Exception(
+                            newChatMembers.Error ?? ErrorCode.InternalServerError.GetDescription()
+                        );
+                }
+
+                //если Id чата все еще null, то значит не переда Id чата
+                if (chatId == Guid.Empty)
+                    return ServiceResult<ChatMessageDTO>.Failure("Id чата не может быть пустым");
+
+                if (!await _chatMemberService.ExistAnyChatMembersBySystem(cm => 
+                    cm.ChatId == chatId && cm.MemberId == senderId && !cm.IsDeleted)
+                )
+                    return ServiceResult<ChatMessageDTO>.Failure("Вы не являетесь участником этого чата", HttpStatusCode.Forbidden);
+
                 var chatMessage = new ChatMessage
                 {
-                    ChatId = request.ChatId,
+                    ChatId = chatId,
                     SenderId = senderId,
                     SystemMessageType = SystemMessageType.None,
                     Message = request.Message
@@ -153,7 +177,7 @@ namespace LunkvayAPI.Chats.Services
                 await _dbContext.SaveChangesAsync();
 
                 var chat = await _chatService.UpdateChatLastMessageBySystem(
-                    request.ChatId, chatMessage.Id
+                    chatId, chatMessage.Id
                 );
 
                 ServiceResult<UserDTO> senderResult = await _userService.GetUserById(senderId);
@@ -161,7 +185,7 @@ namespace LunkvayAPI.Chats.Services
 
                 var chatMessageDTO = MapToDto(chatMessage, user, chatMessage.SenderId == senderId);
 
-                await _chatNotificationService.SendMessage(request.ChatId, chatMessageDTO);
+                await _chatNotificationService.SendMessage(chatId, chatMessageDTO);
                 await transaction.CommitAsync();
 
                 return ServiceResult<ChatMessageDTO>.Success(chatMessageDTO);

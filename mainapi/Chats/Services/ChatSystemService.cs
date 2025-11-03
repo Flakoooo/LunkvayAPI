@@ -1,7 +1,9 @@
 ﻿using LunkvayAPI.Chats.Services.Interfaces;
 using LunkvayAPI.Common.Results;
+using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
+using LunkvayAPI.Data.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace LunkvayAPI.Chats.Services
@@ -24,6 +26,29 @@ namespace LunkvayAPI.Chats.Services
 
             if (chat is null)
                 return ServiceResult<Chat>.Failure("Id чат не найден");
+
+            return ServiceResult<Chat>.Success(chat);
+        }
+
+        public async Task<ServiceResult<Chat>> CreatePersonalChatBySystem(
+            Guid creatorId, Guid receiverId, ChatType chatType, string? name
+        )
+        {
+            if (creatorId == Guid.Empty || receiverId == Guid.Empty)
+                return ServiceResult<Chat>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            if (chatType != ChatType.Personal)
+                return ServiceResult<Chat>.Failure("Метод предназначен только для личных чатов");
+
+            var chat = new Chat
+            {
+                CreatorId = creatorId,
+                Name = name,
+                Type = chatType
+            };
+
+            await _dbContext.Chats.AddAsync(chat);
+            await _dbContext.SaveChangesAsync();
 
             return ServiceResult<Chat>.Success(chat);
         }

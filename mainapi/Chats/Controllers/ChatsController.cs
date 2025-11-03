@@ -34,22 +34,6 @@ namespace LunkvayAPI.Chats.Controllers
             return StatusCode((int)result.StatusCode, result.Error);
         }
 
-        [HttpPost("personal")]
-        public async Task<ActionResult<ChatDTO>> CreateGroupRoom([FromBody] CreatePersonalChatRequest chatRequest)
-        {
-            Guid userId = (Guid)HttpContext.Items["UserId"]!;
-
-            ServiceResult<ChatDTO> result = await _chatService.WriteAndCreatePersonalChat(userId, chatRequest);
-            if (result.IsSuccess)
-            {
-                _logger.LogDebug("Создание личного чата пользователем {CreatorId}", userId);
-                return Ok(result.Result);
-            }
-
-            _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
-            return StatusCode((int)result.StatusCode, result.Error);
-        }
-
         [HttpPost("group")]
         public async Task<ActionResult<ChatDTO>> CreateGroupRoom([FromBody] CreateGroupChatRequest chatRequest)
         {

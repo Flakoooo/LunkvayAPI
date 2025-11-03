@@ -21,6 +21,7 @@ namespace LunkvayAPI.Chats.Controllers
         private readonly IChatImageService _chatImageService = chatImageService;
 
         [HttpGet("{chatId}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetChatImageById(Guid chatId)
         {
             _logger.LogInformation("Запрос изображения чата для пользователя {ChatId}", chatId);
