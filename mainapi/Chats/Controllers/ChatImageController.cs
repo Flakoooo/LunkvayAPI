@@ -20,39 +20,42 @@ namespace LunkvayAPI.Chats.Controllers
         private readonly ILogger<ChatImageController> _logger = logger;
         private readonly IChatImageService _chatImageService = chatImageService;
 
+        private const string DEFAULT_MEDIA_TYPE = MediaTypeNames.Image.Webp;
+
+
         [HttpGet("{chatId}")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetChatImageById(Guid chatId)
+        public async Task<ActionResult> GetUserAvatarByUserId(Guid chatId)
         {
-            _logger.LogInformation("Запрос изображения чата для пользователя {ChatId}", chatId);
+            _logger.LogInformation("Запрос изображения чата {ChatId}", chatId);
 
-            ServiceResult<string> result = await _chatImageService.GetChatImgDBImage(chatId);
+            ServiceResult<byte[]> result = await _chatImageService.GetChatImageByChatId(chatId);
 
-            if (result.IsSuccess)
+            if (!result.IsSuccess || result.Result is null)
             {
-                _logger.LogDebug("Изображение чата для {ChatId} отправлено", chatId);
-                return File(result.Result!, MediaTypeNames.Image.Jpeg);
+                _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
+                return StatusCode((int)result.StatusCode, result.Error);
             }
 
-            _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
-            return StatusCode((int)result.StatusCode, result.Error);
+            _logger.LogDebug("Изображение чата {ChatId} отправлен", chatId);
+            return File(result.Result, DEFAULT_MEDIA_TYPE);
         }
 
         [HttpPost("{chatId}")]
-        public async Task<ActionResult<string>> SetChatImage(Guid chatId, IFormFile avatarFile)
+        public async Task<ActionResult> UploadAvatar(Guid chatId, IFormFile avatarFile)
         {
             Guid userId = (Guid)HttpContext.Items["UserId"]!;
 
             if (avatarFile == null || avatarFile.Length == 0)
-                return BadRequest(AvatarsErrorCode.FileIsNull.GetDescription());
+                return BadRequest("Файл не предоставлен");
 
             if (avatarFile.Length > 5 * 1024 * 1024)
-                return BadRequest(AvatarsErrorCode.FileLengthLimit.GetDescription());
+                return BadRequest("Файл слишком большой. Максимальный размер: 5MB");
 
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp" };
             var fileExtension = Path.GetExtension(avatarFile.FileName).ToLowerInvariant();
             if (!allowedExtensions.Contains(fileExtension))
-                return BadRequest(AvatarsErrorCode.FileFormatInvalid.GetDescription());
+                return BadRequest("Недопустимый формат файла. Разрешены: JPG, PNG, GIF, BMP");
 
             try
             {
@@ -64,7 +67,7 @@ namespace LunkvayAPI.Chats.Controllers
                     fileData = memoryStream.ToArray();
                 }
 
-                var result = await _chatImageService.UploadChatImgDBImage(userId, chatId, fileData);
+                var result = await _chatImageService.SetChatImage(userId, chatId, fileData);
 
                 if (!result.IsSuccess || result.Result is null)
                 {
@@ -72,7 +75,7 @@ namespace LunkvayAPI.Chats.Controllers
                     return StatusCode((int)result.StatusCode, result.Error);
                 }
 
-                return Ok(result.Result);
+                return File(result.Result, DEFAULT_MEDIA_TYPE);
             }
             catch (Exception ex)
             {
@@ -82,22 +85,22 @@ namespace LunkvayAPI.Chats.Controllers
         }
 
         [HttpDelete("{chatId}")]
-        public async Task<ActionResult<string>> DeleteChatImage(Guid chatId)
+        public async Task<ActionResult> DeleteChatImage(Guid chatId)
         {
             Guid userId = (Guid)HttpContext.Items["UserId"]!;
 
-            _logger.LogInformation("Запрос на удаление аватара для пользователя {UserId}", userId);
+            _logger.LogInformation("Запрос удаления изображения чата {ChatId}", chatId);
 
-            ServiceResult<string> result = await _chatImageService.DeleteChatImgDBImage(userId, chatId);
+            ServiceResult<bool> result = await _chatImageService.RemoveChatImage(userId, chatId);
 
             if (!result.IsSuccess)
             {
-                _logger.LogError("Ошибка удаления аватара: {Error}", result.Error);
+                _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
                 return StatusCode((int)result.StatusCode, result.Error);
             }
 
-            _logger.LogDebug("Аватар удален для {UserId}", userId);
-            return Ok(result.Result);
+            _logger.LogDebug("Изображение чата {ChatId} успешно удалено", chatId);
+            return Ok();
         }
     }
 }

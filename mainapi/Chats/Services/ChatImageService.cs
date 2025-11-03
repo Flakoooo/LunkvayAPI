@@ -4,76 +4,159 @@ using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
+using LunkvayAPI.Users.Services;
 using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
 using System.Net;
-using System.Text.Json.Nodes;
 
 namespace LunkvayAPI.Chats.Services
 {
-    public class ChatImageService(
-        ILogger<ChatImageService> logger,
-        LunkvayDBContext lunkvayDBContext,
-        HttpClient httpClient,
-        IChatSystemService chatService,
-        IChatMemberSystemService chatMemberService
-    ) : IChatImageService
+    public class ChatImageService : IChatImageService
     {
-        private readonly ILogger<ChatImageService> _logger = logger;
-        private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
-        private readonly HttpClient _httpClient = httpClient;
-        private readonly IChatSystemService _chatService = chatService;
-        private readonly IChatMemberSystemService _chatMemberService = chatMemberService;
+        private readonly ILogger<ChatImageService> _logger;
+        private readonly LunkvayDBContext _dbContext;
+        private readonly IUserService _userService;
+        private readonly IChatSystemService _chatService;
+        private readonly IChatMemberSystemService _chatMemberService;
+        private readonly string? _chatImagesPath;
 
-        private const string DEFAULT_IMAGE_PREFIX = "chat_image_";
-        private const string IMGDB_API_KEY = "b2c5445f5bb24a4908ef0067129d6315";
-        private const string DEFAULT_IMGDB_UPLOAD_URL = "https://api.imgbb.com/1/upload";
-        private const string DEFAULT_IMGDB_UPLOAD_URL_KEY_PARAM = $"?key={IMGDB_API_KEY}";
-        private const string DEFAULT_CHAT_IMAGE_URL = "https://i.ibb.co/hF66vz3v/default-chat.webp";
+        private const string DEFAULT_IMAGE_EXTENSION = "webp";
+        private const string DEFAULT_CHAT_IMAGE_NAME = $"default.{DEFAULT_IMAGE_EXTENSION}";
+        private const string CONFIGURATION_BASE_PATH = "FileStorage:BasePath";
+        private const string CONFIGURATION_CHAT_IMAGES = "FileStorage:ChatImages";
 
-        public async Task<ServiceResult<string>> GetChatImgDBImage(Guid chatId)
+        public ChatImageService(
+            IConfiguration configuration,
+            ILogger<ChatImageService> logger,
+            LunkvayDBContext lunkvayDBContext,
+            IUserService userService,
+            IChatSystemService chatService,
+            IChatMemberSystemService chatMemberService
+        )
         {
-            if (chatId == Guid.Empty)
-                return ServiceResult<string>.Failure("Id чата не может быть пустым");
+            string error = "Путь к изображениям чата не указан или отсуствует файл конфигурации";
+            string basePath = configuration[CONFIGURATION_BASE_PATH] ??
+                throw new FileNotFoundException(error);
+            string chatImages = configuration[CONFIGURATION_CHAT_IMAGES] ??
+                throw new FileNotFoundException(error);
 
-            string? imgDBUrl = await _dbContext.ChatImages
-                .AsNoTracking()
-                .Where(ci => ci.ChatId == chatId)
-                .Select(ci => ci.ImgDBUrl)
-                .FirstOrDefaultAsync();
+            _logger = logger;
+            _dbContext = lunkvayDBContext;
+            _userService = userService;
+            _chatService = chatService;
+            _chatMemberService = chatMemberService;
+            _chatImagesPath = Path.Combine(basePath, chatImages);
 
-            if (imgDBUrl is null)
-                return ServiceResult<string>.Success(DEFAULT_CHAT_IMAGE_URL);
+            if (string.IsNullOrEmpty(DEFAULT_CHAT_IMAGE_NAME))
+            {
+                string nameOfDefaultImage = nameof(DEFAULT_CHAT_IMAGE_NAME);
+                throw new ArgumentNullException(nameOfDefaultImage);
+            }
 
-            return ServiceResult<string>.Success(imgDBUrl);
+            Directory.CreateDirectory(_chatImagesPath);
         }
 
-        public async Task<ServiceResult<string>> UploadChatImgDBImage(Guid userId, Guid chatId, byte[] avatarData)
+        public async Task<ServiceResult<byte[]>> GetChatImageByChatId(Guid chatId)
         {
-            if (userId == Guid.Empty)
-                return ServiceResult<string>.Failure(ErrorCode.UserIdRequired.GetDescription());
-
             if (chatId == Guid.Empty)
-                return ServiceResult<string>.Failure("Id чата не может быть пустым");
+                return ServiceResult<byte[]>.Failure("Id чата не может быть пустым");
 
-            ServiceResult<Chat> chat = await _chatService.GetChatBySystem(chatId);
-            if (!chat.IsSuccess || (chat.Result is not null && chat.Result.Type == ChatType.Personal))
-                return ServiceResult<string>.Failure("Чат не найден");
+            if (string.IsNullOrEmpty(_chatImagesPath))
+            {
+                _logger.LogCritical("Путь к изображениям чата не задан!");
+                return ServiceResult<byte[]>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError
+                );
+            }
 
-            bool validation = await _chatMemberService.ExistAnyChatMembersBySystem(cm => 
-                cm.ChatId == chatId 
-                && cm.MemberId == userId
-                && (cm.Role == ChatMemberRole.Owner || cm.Role == ChatMemberRole.Administrator)
+            string? fileName = await _dbContext.ChatImages
+                .AsNoTracking()
+                .Where(ci => ci.ChatId == chatId)
+                .Select(ci => ci.FileName)
+                .FirstOrDefaultAsync();
+
+            string filePath = Path.Combine(_chatImagesPath, fileName ?? DEFAULT_CHAT_IMAGE_NAME);
+
+            if (File.Exists(filePath))
+            {
+                try
+                {
+                    byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
+                    return fileBytes.Length > 0
+                        ? ServiceResult<byte[]>.Success(fileBytes)
+                        : ServiceResult<byte[]>.Failure(
+                            "Изображение вата повреждено",
+                            HttpStatusCode.NotFound
+                        );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Ошибка чтения файла {FilePath}", filePath);
+                }
+            }
+            // === Если аватар не найден ===
+            _logger.LogWarning("Файл не найден или недоступен: {FilePath}", filePath);
+
+            // Это был поиск дефолтного? Ну что, фатальная ошибка
+            if (fileName is null)
+            {
+                _logger.LogCritical("Дефолтное изображение чата {DefaultImage} отсутствует!", DEFAULT_CHAT_IMAGE_NAME);
+                return ServiceResult<byte[]>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError
+                );
+            }
+
+            // Это был поиск конкретного? Выдать дефолт
+            string defaultPath = Path.Combine(_chatImagesPath, DEFAULT_CHAT_IMAGE_NAME);
+            if (File.Exists(defaultPath))
+            {
+                try
+                {
+                    byte[] fileBytes = await File.ReadAllBytesAsync(defaultPath);
+                    return ServiceResult<byte[]>.Success(fileBytes);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Ошибка чтения дефолтного изображения чата {FilePath}", defaultPath);
+                }
+            }
+
+            return ServiceResult<byte[]>.Failure(
+                "Изображение чата не найдено",
+                HttpStatusCode.NotFound
+            );
+        }
+
+        public async Task<ServiceResult<byte[]>> SetChatImage(Guid userId, Guid chatId, byte[] imageData)
+        {
+            if (chatId == Guid.Empty)
+                return ServiceResult<byte[]>.Failure("Id чата не может быть пустым");
+
+            if (string.IsNullOrEmpty(_chatImagesPath))
+            {
+                _logger.LogCritical("Путь к изображениям чата не указан или отсуствует файл конфигурации");
+                return ServiceResult<byte[]>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError
+                );
+            }
+
+            // Проверяем чат
+            ServiceResult<Chat> chatResult = await _chatService.GetChatBySystem(chatId);
+            if (!chatResult.IsSuccess)
+                return ServiceResult<byte[]>.Failure("Чат не найден");
+
+            bool validation = await _chatMemberService.ExistAnyChatMembersBySystem(cm =>
+                cm.ChatId == chatId && cm.MemberId == userId && cm.Role != ChatMemberRole.Member
             );
             if (!validation)
-                return ServiceResult<string>.Failure("Отказано в доступе", HttpStatusCode.Forbidden);
+                return ServiceResult<byte[]>.Failure("Отказано в доступе");
 
             try
             {
-                // конвертация в webp
+                // Конвертация в webp
                 byte[] webpData;
-                using (var image = Image.Load(avatarData))
+                using (var image = Image.Load(imageData))
                 {
                     using var ms = new MemoryStream();
                     image.Save(ms, new WebpEncoder()
@@ -84,166 +167,119 @@ namespace LunkvayAPI.Chats.Services
                     webpData = ms.ToArray();
                 }
 
-                string uploadUrl = $"{DEFAULT_IMGDB_UPLOAD_URL}{DEFAULT_IMGDB_UPLOAD_URL_KEY_PARAM}";
+                string fileName = $"{userId}.{DEFAULT_IMAGE_EXTENSION}";
+                string filePath = Path.Combine(_chatImagesPath, fileName);
+                string tempFilePath = Path.Combine(_chatImagesPath, $"{chatId}.temp.{DEFAULT_IMAGE_EXTENSION}");
 
-                var form = new MultipartFormDataContent
+                using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+                try
                 {
-                    { new ByteArrayContent(webpData), "image" },
-                    { new StringContent($"{DEFAULT_IMAGE_PREFIX}{chatId}"), "name" }
-                };
+                    // пременный файл
+                    await File.WriteAllBytesAsync(tempFilePath, webpData);
 
-                var response = await _httpClient.PostAsync(uploadUrl, form);
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogError("Ошибка при загрузке изображения чата {ChatId}. Status: {StatusCode}",
-                        chatId, response.StatusCode);
-                    return ServiceResult<string>.Failure(
-                        "Ошибка при загрузке изображения", response.StatusCode
-                    );
-                }
+                    var existingChatImage = await _dbContext.ChatImages
+                        .FirstOrDefaultAsync(ci => ci.ChatId == chatId);
+                    string? oldFileName = existingChatImage?.FileName;
 
-                var jsonResponse = await response.Content.ReadAsStringAsync();
-                var json = JsonNode.Parse(jsonResponse);
-
-                if (json?["success"]?.GetValue<bool>() == true)
-                {
-                    string? id = json["data"]?["id"]?.GetValue<string>();
-                    string? url = json["data"]?["url"]?.GetValue<string>();
-                    string? deleteUrl = json["data"]?["delete_url"]?.GetValue<string>();
-
-                    if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(url) && !string.IsNullOrEmpty(deleteUrl))
+                    if (existingChatImage != null)
                     {
-                        var chatImage = await _dbContext.ChatImages
-                            .FirstOrDefaultAsync(ci => ci.ChatId == chatId);
-
-                        string? oldDeleteUrl = null;
-
-                        if (chatImage == null)
-                        {
-                            chatImage = new ChatImage
-                            {
-                                ChatId = chatId,
-                                ImgDBId = id,
-                                ImgDBUrl = url,
-                                ImgDBDeleteUrl = deleteUrl,
-                                UpdatedAt = DateTime.UtcNow
-                            };
-                            await _dbContext.AddAsync(chatImage);
-                        }
-                        else
-                        {
-                            oldDeleteUrl = chatImage.ImgDBDeleteUrl;
-
-                            chatImage.ImgDBId = id;
-                            chatImage.ImgDBUrl = url;
-                            chatImage.ImgDBDeleteUrl = deleteUrl;
-                            chatImage.UpdatedAt = DateTime.UtcNow;
-                        }
-
-                        await _dbContext.SaveChangesAsync();
-
-                        if (!string.IsNullOrEmpty(oldDeleteUrl))
-                        {
-                            try
-                            {
-                                var deleteResponse = await _httpClient.DeleteAsync(oldDeleteUrl);
-                                if (!deleteResponse.IsSuccessStatusCode)
-                                    _logger.LogWarning(
-                                        "Не удалось удалить старое изображение чата {ChatId}. Status: {StatusCode}",
-                                        chatId, deleteResponse.StatusCode
-                                    );
-                                else
-                                    _logger.LogInformation("Старое изображение удалено для чата {ChatId}", chatId);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Ошибка при удалении старого изображения чата {ChatId}", chatId);
-                            }
-                        }
-
-                        _logger.LogInformation("Изображение чата успешно обновлено для чата {ChatId}", chatId);
-                        return ServiceResult<string>.Success(url);
+                        existingChatImage.FileName = fileName;
+                        existingChatImage.UpdatedAt = DateTime.UtcNow;
                     }
-                }
+                    else
+                    {
+                        await _dbContext.ChatImages.AddAsync(
+                            new ChatImage { FileName = fileName, ChatId = chatId, UpdatedAt = DateTime.UtcNow }
+                        );
+                    }
 
-                throw new Exception("Upload failed: " + jsonResponse);
+                    await _dbContext.SaveChangesAsync();
+
+                    // удаляем старый и на его место перемещаем временный
+                    if (File.Exists(filePath)) File.Delete(filePath);
+
+                    File.Move(tempFilePath, filePath);
+
+                    // удаляем старый файл если он каким то образом назван по другому
+                    if (oldFileName != null && oldFileName != fileName)
+                    {
+                        var oldFilePath = Path.Combine(_chatImagesPath, oldFileName);
+                        if (File.Exists(oldFilePath)) File.Delete(oldFilePath);
+                    }
+
+                    await transaction.CommitAsync();
+                    return ServiceResult<byte[]>.Success(webpData);
+                }
+                catch
+                {
+                    if (File.Exists(tempFilePath)) File.Delete(tempFilePath);
+                    throw;
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка при сохранении изображения чата {ChatId}", chatId);
-                return ServiceResult<string>.Failure(
+                _logger.LogError(ex, "Ошибка при сохранении изобрадении чата {ChatId}", chatId);
+                return ServiceResult<byte[]>.Failure(
                     "Ошибка при обработке изображения", HttpStatusCode.InternalServerError
                 );
             }
         }
 
-        public async Task<ServiceResult<string>> DeleteChatImgDBImage(Guid userId, Guid chatId)
+        public async Task<ServiceResult<bool>> RemoveChatImage(Guid userId, Guid chatId)
         {
-            if (userId == Guid.Empty)
-                return ServiceResult<string>.Failure(ErrorCode.UserIdRequired.GetDescription());
-
             if (chatId == Guid.Empty)
-                return ServiceResult<string>.Failure("Id чата не может быть пустым");
+                return ServiceResult<bool>.Failure("Id чата не может быть пустым");
 
-            ServiceResult<Chat> chat = await _chatService.GetChatBySystem(chatId);
-            if (!chat.IsSuccess || (chat.Result is not null && chat.Result.Type == ChatType.Personal))
-                return ServiceResult<string>.Failure("Чат не найден");
+            if (string.IsNullOrEmpty(_chatImagesPath))
+            {
+                _logger.LogCritical("Путь к изображениям чата не указан или отсуствует файл конфигурации");
+                return ServiceResult<bool>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError
+                );
+            }
+
+            // Проверяем чат
+            ServiceResult<Chat> chatResult = await _chatService.GetChatBySystem(chatId);
+            if (!chatResult.IsSuccess)
+                return ServiceResult<bool>.Failure("Чат не найден");
 
             bool validation = await _chatMemberService.ExistAnyChatMembersBySystem(cm =>
-                cm.ChatId == chatId
-                && cm.MemberId == userId
-                && (cm.Role == ChatMemberRole.Owner || cm.Role == ChatMemberRole.Administrator)
+                cm.ChatId == chatId && cm.MemberId == userId && cm.Role != ChatMemberRole.Member
             );
             if (!validation)
-                return ServiceResult<string>.Failure("Отказано в доступе", HttpStatusCode.Forbidden);
+                return ServiceResult<bool>.Failure("Отказано в доступе");
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
             try
             {
-                var chatImage = await _dbContext.ChatImages
+                var existingChatImage = await _dbContext.ChatImages
                     .FirstOrDefaultAsync(ci => ci.ChatId == chatId);
 
-                if (chatImage == null)
-                    return ServiceResult<string>.Success(DEFAULT_CHAT_IMAGE_URL);
-
-                string? deleteUrl = chatImage.ImgDBDeleteUrl;
-
-                _dbContext.ChatImages.Remove(chatImage);
-                await _dbContext.SaveChangesAsync();
-
-                if (!string.IsNullOrEmpty(deleteUrl))
+                if (existingChatImage == null)
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            var deleteResponse = await _httpClient.DeleteAsync(deleteUrl);
-                            if (deleteResponse.IsSuccessStatusCode)
-                            {
-                                _logger.LogInformation("Изображение чата удалено из ImgBB для чата {ChatId}", chatId);
-                            }
-                            else
-                            {
-                                _logger.LogWarning(
-                                    "Не удалось удалить изображение чата из ImgBB для чата {ChatId}. Status: {StatusCode}",
-                                    chatId, deleteResponse.StatusCode
-                                );
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Ошибка при удалении изображении чата из ImgBB для чата {ChatId}", chatId);
-                        }
-                    });
+                    await transaction.CommitAsync();
+                    return ServiceResult<bool>.Success(true);
                 }
 
-                _logger.LogInformation("Изображение чата удалено для чата {ChatId}", chatId);
-                return ServiceResult<string>.Success(DEFAULT_CHAT_IMAGE_URL);
+                string filePath = Path.Combine(_chatImagesPath, existingChatImage.FileName);
+                if (File.Exists(filePath)) File.Delete(filePath);
+
+                _dbContext.ChatImages.Remove(existingChatImage);
+                await _dbContext.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Изображение чата {ChatId} удалено", chatId);
+                return ServiceResult<bool>.Success(true);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка при удалении изображении чата для пользователя {ChatId}", chatId);
-                return ServiceResult<string>.Failure(
-                    "Ошибка при удалении аватара", HttpStatusCode.InternalServerError
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Ошибка при удалении изображения чата {ChatId}", chatId);
+                return ServiceResult<bool>.Failure(
+                    "Ошибка при удалении изображения чата", HttpStatusCode.InternalServerError
                 );
             }
         }

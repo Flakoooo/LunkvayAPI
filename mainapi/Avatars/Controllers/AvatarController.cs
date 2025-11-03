@@ -1,10 +1,10 @@
-﻿using LunkvayAPI.Avatars.Models.Enums;
-using LunkvayAPI.Avatars.Services;
+﻿using LunkvayAPI.Avatars.Services;
 using LunkvayAPI.Common.Results;
-using LunkvayAPI.Common.Utils;
+using LunkvayAPI.Data.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
+using System.Net.Mime;
 
 namespace LunkvayAPI.Avatars.Controllers
 {
@@ -12,21 +12,24 @@ namespace LunkvayAPI.Avatars.Controllers
     [Authorize]
     [Route("api/v1/[controller]")]
     public class AvatarController(
-        ILogger<AvatarController> logger, 
+        ILogger<AvatarController> logger,
         IAvatarService avatarService
     ) : Controller
     {
         private readonly ILogger<AvatarController> _logger = logger;
         private readonly IAvatarService _avatarService = avatarService;
 
+        private const string DEFAULT_MEDIA_TYPE = MediaTypeNames.Image.Webp;
+
         [HttpGet]
-        public async Task<ActionResult<string>> GetCurrentUserImgDBAvatar()
+        public async Task<ActionResult> GetUserAvatar()
         {
             Guid userId = (Guid)HttpContext.Items["UserId"]!;
 
             _logger.LogInformation("Запрос аватара для пользователя {UserId}", userId);
 
-            ServiceResult<string> result = await _avatarService.GetUserImgDBAvatar(userId);
+            ServiceResult<byte[]> result = await _avatarService.GetUserAvatarByUserId(userId);
+
             if (!result.IsSuccess || result.Result is null)
             {
                 _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
@@ -34,16 +37,17 @@ namespace LunkvayAPI.Avatars.Controllers
             }
 
             _logger.LogDebug("Аватар для {UserId} отправлен", userId);
-            return Ok(result.Result);
+            return File(result.Result, DEFAULT_MEDIA_TYPE);
         }
 
         [HttpGet("{userId}")]
         [AllowAnonymous]
-        public async Task<ActionResult<string>> GetUserImgDBAvatar(Guid userId)
+        public async Task<ActionResult> GetUserAvatarByUserId(Guid userId)
         {
             _logger.LogInformation("Запрос аватара для пользователя {UserId}", userId);
 
-            ServiceResult<string> result = await _avatarService.GetUserImgDBAvatar(userId);
+            ServiceResult<byte[]> result = await _avatarService.GetUserAvatarByUserId(userId);
+
             if (!result.IsSuccess || result.Result is null)
             {
                 _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
@@ -51,24 +55,24 @@ namespace LunkvayAPI.Avatars.Controllers
             }
 
             _logger.LogDebug("Аватар для {UserId} отправлен", userId);
-            return Ok(result.Result);
+            return File(result.Result, DEFAULT_MEDIA_TYPE);
         }
 
         [HttpPost]
-        public async Task<ActionResult<string>> UploadUserImgDBAvatar(IFormFile avatarFile)
+        public async Task<ActionResult> UploadAvatar(IFormFile avatarFile)
         {
             Guid userId = (Guid)HttpContext.Items["UserId"]!;
 
             if (avatarFile == null || avatarFile.Length == 0)
-                return BadRequest(AvatarsErrorCode.FileIsNull.GetDescription());
+                return BadRequest("Файл не предоставлен");
 
             if (avatarFile.Length > 5 * 1024 * 1024)
-                return BadRequest(AvatarsErrorCode.FileLengthLimit.GetDescription());
+                return BadRequest("Файл слишком большой. Максимальный размер: 5MB");
 
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp" };
             var fileExtension = Path.GetExtension(avatarFile.FileName).ToLowerInvariant();
             if (!allowedExtensions.Contains(fileExtension))
-                return BadRequest(AvatarsErrorCode.FileFormatInvalid.GetDescription());
+                return BadRequest("Недопустимый формат файла. Разрешены: JPG, PNG, GIF, BMP");
 
             try
             {
@@ -80,7 +84,7 @@ namespace LunkvayAPI.Avatars.Controllers
                     fileData = memoryStream.ToArray();
                 }
 
-                var result = await _avatarService.UploadUserImgDBAvatar(userId, fileData);
+                var result = await _avatarService.SetUserAvatar(userId, fileData);
 
                 if (!result.IsSuccess || result.Result is null)
                 {
@@ -88,7 +92,7 @@ namespace LunkvayAPI.Avatars.Controllers
                     return StatusCode((int)result.StatusCode, result.Error);
                 }
 
-                return Ok(result.Result);
+                return File(result.Result, DEFAULT_MEDIA_TYPE);
             }
             catch (Exception ex)
             {
@@ -98,22 +102,22 @@ namespace LunkvayAPI.Avatars.Controllers
         }
 
         [HttpDelete]
-        public async Task<ActionResult<string>> DeleteUserImgDBAvatar()
+        public async Task<ActionResult> DeleteUserAvatar()
         {
             Guid userId = (Guid)HttpContext.Items["UserId"]!;
 
-            _logger.LogInformation("Запрос на удаление аватара для пользователя {UserId}", userId);
+            _logger.LogInformation("Запрос удаления аватара для пользователя {UserId}", userId);
 
-            ServiceResult<string> result = await _avatarService.DeleteUserImgDBAvatar(userId);
+            ServiceResult<bool> result = await _avatarService.RemoveUserAvatar(userId);
 
             if (!result.IsSuccess)
             {
-                _logger.LogError("Ошибка удаления аватара: {Error}", result.Error);
+                _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
                 return StatusCode((int)result.StatusCode, result.Error);
             }
 
-            _logger.LogDebug("Аватар удален для {UserId}", userId);
-            return Ok(result.Result);
+            _logger.LogDebug("Аватар пользователя {UserId} успешно удален", userId);
+            return Ok();
         }
     }
 }

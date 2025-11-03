@@ -1,4 +1,5 @@
-﻿using LunkvayAPI.Common.DTO;
+﻿using LunkvayAPI.Avatars.Models.Enums;
+using LunkvayAPI.Common.DTO;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
@@ -13,58 +14,139 @@ using System.Text.Json.Nodes;
 
 namespace LunkvayAPI.Avatars.Services
 {
-    public class AvatarService(
-        ILogger<AvatarService> logger,
-        LunkvayDBContext lunkvayDBContext,
-        HttpClient httpClient,
-        IUserService userService
-    ) : IAvatarService
+    public class AvatarService : IAvatarService
     {
-        private readonly ILogger<AvatarService> _logger = logger;
-        private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
-        private readonly HttpClient _httpClient = httpClient;
-        private readonly IUserService _userService = userService;
+        private readonly ILogger<AvatarService> _logger;
+        private readonly LunkvayDBContext _dbContext;
+        private readonly IUserService _userService;
+        private readonly string? _avatarsPath;
 
-        private const string DEFAULT_IMAGE_PREFIX = "user_avatar_";
-        private const string IMGDB_API_KEY = "b2c5445f5bb24a4908ef0067129d6315";
-        private const string DEFAULT_IMGDB_UPLOAD_URL = "https://api.imgbb.com/1/upload";
-        private const string DEFAULT_IMGDB_UPLOAD_URL_KEY_PARAM = $"?key={IMGDB_API_KEY}";
-        private const string DEFAULT_AVATAR_URL = "https://i.ibb.co/67xWgZSb/default-user.webp";
+        private const string DEFAULT_IMAGE_EXTENSION = "webp";
+        private const string DEFAULT_USER_IMAGE_NAME = $"default.{DEFAULT_IMAGE_EXTENSION}";
+        private const string CONFIGURATION_BASE_PATH = "FileStorage:BasePath";
+        private const string CONFIGURATION_AVATARS = "FileStorage:Avatars";
 
-        public async Task<ServiceResult<string>> GetUserImgDBAvatar(Guid userId)
+        public AvatarService(
+            IConfiguration configuration,
+            ILogger<AvatarService> logger,
+            LunkvayDBContext lunkvayDBContext,
+            IUserService userService
+        )
         {
-            if (userId == Guid.Empty)
-                return ServiceResult<string>.Failure(ErrorCode.UserIdRequired.GetDescription());
+            string basePath = configuration[CONFIGURATION_BASE_PATH] ??
+                throw new FileNotFoundException(AvatarsErrorCode.UserAvatarsPathNotFound.GetDescription());
+            string avatars = configuration[CONFIGURATION_AVATARS] ??
+                throw new FileNotFoundException(AvatarsErrorCode.UserAvatarsPathNotFound.GetDescription());
 
-            string? imgDBUrl = await _dbContext.Avatars
-                .AsNoTracking()
-                .Where(a => a.UserId == userId)
-                .Select(a => a.ImgDBUrl)
-                .FirstOrDefaultAsync();
+            _logger = logger;
+            _dbContext = lunkvayDBContext;
+            _userService = userService;
+            _avatarsPath = Path.Combine(basePath, avatars);
 
-            if (imgDBUrl is null)
-                return ServiceResult<string>.Success(DEFAULT_AVATAR_URL);
+            if (string.IsNullOrEmpty(DEFAULT_USER_IMAGE_NAME))
+            {
+                string nameOfDefaultImage = nameof(DEFAULT_USER_IMAGE_NAME);
+                throw new ArgumentNullException(nameOfDefaultImage);
+            }
 
-            return ServiceResult<string>.Success(imgDBUrl);
+            Directory.CreateDirectory(_avatarsPath);
         }
 
-        public async Task<ServiceResult<string>> UploadUserImgDBAvatar(Guid userId, byte[] avatarData)
+        public async Task<ServiceResult<byte[]>> GetUserAvatarByUserId(Guid userId)
         {
             if (userId == Guid.Empty)
-                return ServiceResult<string>.Failure(ErrorCode.UserIdRequired.GetDescription());
+                return ServiceResult<byte[]>.Failure(ErrorCode.UserIdRequired.GetDescription());
 
+            if (string.IsNullOrEmpty(_avatarsPath))
+            {
+                _logger.LogCritical("Путь к аватарам не задан!");
+                return ServiceResult<byte[]>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError
+                );
+            }
+
+            string? fileName = await _dbContext.Avatars
+                .AsNoTracking()
+                .Where(a => a.UserId == userId)
+                .Select(a => a.FileName)
+                .FirstOrDefaultAsync();
+
+            string filePath = Path.Combine(_avatarsPath, fileName ?? DEFAULT_USER_IMAGE_NAME);
+
+            if (File.Exists(filePath))
+            {
+                try
+                {
+                    byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
+                    return fileBytes.Length > 0
+                        ? ServiceResult<byte[]>.Success(fileBytes)
+                        : ServiceResult<byte[]>.Failure(
+                            AvatarsErrorCode.AvatarTruncated.GetDescription(),
+                            HttpStatusCode.NotFound
+                        );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Ошибка чтения файла {FilePath}", filePath);
+                }
+            }
+            // === Если аватар не найден ===
+            _logger.LogWarning("Файл не найден или недоступен: {FilePath}", filePath);
+
+            // Это был поиск дефолтного? Ну что, фатальная ошибка
+            if (fileName is null)
+            {
+                _logger.LogCritical("Дефолтный аватар {DefaultImage} отсутствует!", DEFAULT_USER_IMAGE_NAME);
+                return ServiceResult<byte[]>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError
+                );
+            }
+
+            // Это был поиск конкретного? Выдать дефолт
+            string defaultPath = Path.Combine(_avatarsPath, DEFAULT_USER_IMAGE_NAME);
+            if (File.Exists(defaultPath))
+            {
+                try
+                {
+                    byte[] fileBytes = await File.ReadAllBytesAsync(defaultPath);
+                    return ServiceResult<byte[]>.Success(fileBytes);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Ошибка чтения дефолтного аватара {FilePath}", defaultPath);
+                }
+            }
+
+            return ServiceResult<byte[]>.Failure(
+                AvatarsErrorCode.AvatarNotFound.GetDescription(),
+                HttpStatusCode.NotFound
+            );
+        }
+
+        public async Task<ServiceResult<byte[]>> SetUserAvatar(Guid userId, byte[] avatarData)
+        {
+            if (userId == Guid.Empty)
+                return ServiceResult<byte[]>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            if (string.IsNullOrEmpty(_avatarsPath))
+            {
+                _logger.LogCritical("Путь к изображениям пользователя не указан или отсуствует файл конфигурации");
+                return ServiceResult<byte[]>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError
+                );
+            }
+
+            // Проверяем пользователя
             ServiceResult<UserDTO> userResult = await _userService.GetUserById(userId);
             if (!userResult.IsSuccess || userResult.Result is null || userResult.Result.UserName is null)
-                return ServiceResult<string>.Failure(
+                return ServiceResult<byte[]>.Failure(
                     userResult.Error ?? ErrorCode.InternalServerError.GetDescription(),
                     userResult.Error is null ? HttpStatusCode.InternalServerError : userResult.StatusCode
                 );
 
-            var user = userResult.Result;
-
             try
             {
-                // конвертация в webp
+                // Конвертация в webp
                 byte[] webpData;
                 using (var image = Image.Load(avatarData))
                 {
@@ -77,150 +159,107 @@ namespace LunkvayAPI.Avatars.Services
                     webpData = ms.ToArray();
                 }
 
-                string uploadUrl = $"{DEFAULT_IMGDB_UPLOAD_URL}{DEFAULT_IMGDB_UPLOAD_URL_KEY_PARAM}";
+                string fileName = $"{userId}.{DEFAULT_IMAGE_EXTENSION}";
+                string filePath = Path.Combine(_avatarsPath, fileName);
+                string tempFilePath = Path.Combine(_avatarsPath, $"{userId}.temp.{DEFAULT_IMAGE_EXTENSION}");
 
-                var form = new MultipartFormDataContent
+                using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+                try
                 {
-                    { new ByteArrayContent(webpData), "image" },
-                    { new StringContent($"{DEFAULT_IMAGE_PREFIX}{user.Id}"), "name" }
-                };
+                    // пременный файл
+                    await File.WriteAllBytesAsync(tempFilePath, webpData);
 
-                var response = await _httpClient.PostAsync(uploadUrl, form);
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogError("Ошибка при загрузке аватара для пользователя {UserId}. Status: {StatusCode}",
-                        userId, response.StatusCode);
-                    return ServiceResult<string>.Failure(
-                        "Ошибка при загрузке изображения", response.StatusCode
-                    );
-                }
+                    var existingAvatar = await _dbContext.Avatars
+                        .FirstOrDefaultAsync(a => a.UserId == userId);
+                    string? oldFileName = existingAvatar?.FileName;
 
-                var jsonResponse = await response.Content.ReadAsStringAsync();
-                var json = JsonNode.Parse(jsonResponse);
-
-                if (json?["success"]?.GetValue<bool>() == true)
-                {
-                    string? id = json["data"]?["id"]?.GetValue<string>();
-                    string? url = json["data"]?["url"]?.GetValue<string>();
-                    string? deleteUrl = json["data"]?["delete_url"]?.GetValue<string>();
-
-                    if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(url) && !string.IsNullOrEmpty(deleteUrl))
+                    if (existingAvatar != null)
                     {
-                        var avatar = await _dbContext.Avatars
-                            .FirstOrDefaultAsync(a => a.UserId == userId);
-
-                        string? oldDeleteUrl = null;
-
-                        if (avatar == null)
-                        {
-                            avatar = new Avatar
-                            {
-                                UserId = userId,
-                                ImgDBId = id,
-                                ImgDBUrl = url,
-                                ImgDBDeleteUrl = deleteUrl,
-                                UpdatedAt = DateTime.UtcNow
-                            };
-                            await _dbContext.AddAsync(avatar);
-                        }
-                        else
-                        {
-                            oldDeleteUrl = avatar.ImgDBDeleteUrl;
-
-                            avatar.ImgDBId = id;
-                            avatar.ImgDBUrl = url;
-                            avatar.ImgDBDeleteUrl = deleteUrl;
-                            avatar.UpdatedAt = DateTime.UtcNow;
-                        }
-
-                        await _dbContext.SaveChangesAsync();
-
-                        if (!string.IsNullOrEmpty(oldDeleteUrl))
-                        {
-                            try
-                            {
-                                var deleteResponse = await _httpClient.DeleteAsync(oldDeleteUrl);
-                                if (!deleteResponse.IsSuccessStatusCode)
-                                    _logger.LogWarning(
-                                        "Не удалось удалить старый аватар пользователя {UserId}. Status: {StatusCode}",
-                                        userId, deleteResponse.StatusCode
-                                    );
-                                else
-                                    _logger.LogInformation("Старый аватар удален для пользователя {UserId}", userId);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Ошибка при удалении старого аватара пользователя {UserId}", userId);
-                            }
-                        }
-
-                        _logger.LogInformation("Аватар успешно обновлен для пользователя {UserId}", userId);
-                        return ServiceResult<string>.Success(url);
+                        existingAvatar.FileName = fileName;
+                        existingAvatar.UpdatedAt = DateTime.UtcNow;
                     }
-                }
+                    else
+                    {
+                        await _dbContext.Avatars.AddAsync(
+                            new Avatar { FileName = fileName, UserId = userId, UpdatedAt = DateTime.UtcNow }
+                        );
+                    }
 
-                throw new Exception("Upload failed: " + jsonResponse);
+                    await _dbContext.SaveChangesAsync();
+
+                    // удаляем старый и на его место перемещаем временный
+                    if (File.Exists(filePath)) File.Delete(filePath); 
+
+                    File.Move(tempFilePath, filePath);
+
+                    // удаляем старый файл если он каким то образом назван по другому
+                    if (oldFileName != null && oldFileName != fileName)
+                    {
+                        var oldFilePath = Path.Combine(_avatarsPath, oldFileName);
+                        if (File.Exists(oldFilePath)) File.Delete(oldFilePath);
+                    }
+
+                    await transaction.CommitAsync();
+                    return ServiceResult<byte[]>.Success(webpData);
+                }
+                catch
+                {
+                    if (File.Exists(tempFilePath)) File.Delete(tempFilePath);
+                    throw;
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка при сохранении аватара для пользователя {UserId}", userId);
-                return ServiceResult<string>.Failure(
+                return ServiceResult<byte[]>.Failure(
                     "Ошибка при обработке изображения", HttpStatusCode.InternalServerError
                 );
             }
         }
 
-        public async Task<ServiceResult<string>> DeleteUserImgDBAvatar(Guid userId)
+        public async Task<ServiceResult<bool>> RemoveUserAvatar(Guid userId)
         {
             if (userId == Guid.Empty)
-                return ServiceResult<string>.Failure(ErrorCode.UserIdRequired.GetDescription());
+                return ServiceResult<bool>.Failure(ErrorCode.UserIdRequired.GetDescription());
+
+            if (string.IsNullOrEmpty(_avatarsPath))
+            {
+                _logger.LogCritical("Путь к изображениям пользователя не указан или отсутствует файл конфигурации");
+                return ServiceResult<bool>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError
+                );
+            }
+
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
             try
             {
-                var avatar = await _dbContext.Avatars
+                var existingAvatar = await _dbContext.Avatars
                     .FirstOrDefaultAsync(a => a.UserId == userId);
 
-                if (avatar == null)
-                    return ServiceResult<string>.Success(DEFAULT_AVATAR_URL);
-
-                string? deleteUrl = avatar.ImgDBDeleteUrl;
-
-                _dbContext.Avatars.Remove(avatar);
-                await _dbContext.SaveChangesAsync();
-
-                if (!string.IsNullOrEmpty(deleteUrl))
+                if (existingAvatar == null)
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            var deleteResponse = await _httpClient.DeleteAsync(deleteUrl);
-                            if (deleteResponse.IsSuccessStatusCode)
-                            {
-                                _logger.LogInformation("Аватар удален из ImgBB для пользователя {UserId}", userId);
-                            }
-                            else
-                            {
-                                _logger.LogWarning(
-                                    "Не удалось удалить аватар из ImgBB для пользователя {UserId}. Status: {StatusCode}",
-                                    userId, deleteResponse.StatusCode
-                                );
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Ошибка при удалении аватара из ImgBB для пользователя {UserId}", userId);
-                        }
-                    });
+                    await transaction.CommitAsync();
+                    return ServiceResult<bool>.Success(true);
                 }
 
-                _logger.LogInformation("Аватар удален для пользователя {UserId}", userId);
-                return ServiceResult<string>.Success(DEFAULT_AVATAR_URL);
+                string filePath = Path.Combine(_avatarsPath, existingAvatar.FileName);
+                if (File.Exists(filePath)) File.Delete(filePath);
+
+                _dbContext.Avatars.Remove(existingAvatar);
+                await _dbContext.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Аватар пользователя {UserId} удален", userId);
+                return ServiceResult<bool>.Success(true);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка при удалении аватара для пользователя {UserId}", userId);
-                return ServiceResult<string>.Failure(
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Ошибка при удалении аватара пользователя {UserId}", userId);
+                return ServiceResult<bool>.Failure(
                     "Ошибка при удалении аватара", HttpStatusCode.InternalServerError
                 );
             }

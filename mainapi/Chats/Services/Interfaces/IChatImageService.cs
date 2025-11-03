@@ -4,8 +4,8 @@ namespace LunkvayAPI.Chats.Services.Interfaces
 {
     public interface IChatImageService
     {
-        Task<ServiceResult<string>> GetChatImgDBImage(Guid chatId);
-        Task<ServiceResult<string>> UploadChatImgDBImage(Guid userId, Guid chatId, byte[] avatarData);
-        Task<ServiceResult<string>> DeleteChatImgDBImage(Guid userId, Guid chatId);
+        Task<ServiceResult<byte[]>> GetChatImageByChatId(Guid chatId);
+        Task<ServiceResult<byte[]>> SetChatImage(Guid userId, Guid chatId, byte[] imageData);
+        Task<ServiceResult<bool>> RemoveChatImage(Guid userId, Guid chatId);
     }
 }

@@ -197,21 +197,24 @@ namespace LunkvayAPI.Friends.Services
         }
 
         public async Task<ServiceResult<List<UserListItemDTO>>> GetPossibleFriends(
-            Guid userId, int page, int pageSize
-        )
+            Guid userId, int page, int pageSize)
         {
             if (userId == Guid.Empty)
                 return ServiceResult<List<UserListItemDTO>>.Failure(ErrorCode.UserIdRequired.GetDescription());
 
+            var excludedUserIds = await _dbContext.Friendships
+                .Where(f => (f.UserId1 == userId || f.UserId2 == userId) &&
+                           (f.Status == FriendshipStatus.Pending ||
+                            f.Status == FriendshipStatus.Accepted)) //если будет тут блок, то добавить
+                .Select(f => f.UserId1 == userId ? f.UserId2 : f.UserId1)
+                .Distinct()
+                .ToArrayAsync();
+
             var users = await _dbContext.Users
-                .Where(u => u.Id != userId)
-                .Where(u => !_dbContext.Friendships
-                    .Any(f => (f.UserId1 == userId && f.UserId2 == u.Id) || 
-                              (f.UserId2 == userId && f.UserId1 == u.Id))
-                )
-                .OrderByDescending(u => _dbContext.Friendships
-                    .Count(f => f.UserId1 == u.Id || f.UserId2 == u.Id)
-                )
+                .Where(u => u.Id != userId && !u.IsDeleted)
+                .Where(u => !excludedUserIds.Contains(u.Id))
+                .OrderByDescending(u => u.IsOnline)
+                    .ThenBy(u => u.UserName)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(u => new UserListItemDTO
@@ -222,6 +225,7 @@ namespace LunkvayAPI.Friends.Services
                     LastName = u.LastName,
                     IsOnline = u.IsOnline,
                 })
+                .AsNoTracking()
                 .ToListAsync();
 
             return ServiceResult<List<UserListItemDTO>>.Success(users);
