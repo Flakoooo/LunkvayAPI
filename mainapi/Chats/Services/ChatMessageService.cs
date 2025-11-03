@@ -8,6 +8,7 @@ using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Users.Services;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using System.Net;
@@ -246,13 +247,15 @@ namespace LunkvayAPI.Chats.Services
 
             var user = senderResult.Result;
 
-            return ServiceResult<ChatMessageDTO>.Success(
-                MapToDto(
-                    message,
-                    user.Id, user.UserName, user.FirstName, user.LastName, user.IsOnline,
-                    message.SenderId == editorId
-                )
+            var chatMessageDTO = MapToDto(
+                message,
+                user.Id, user.UserName, user.FirstName, user.LastName, user.IsOnline,
+                message.SenderId == editorId
             );
+
+            await _chatNotificationService.UpdateMessage(request.ChatId, chatMessageDTO);
+
+            return ServiceResult<ChatMessageDTO>.Success(chatMessageDTO);
         }
 
         public async Task<ServiceResult<ChatMessageDTO>> PinChatMessage(
@@ -300,6 +303,8 @@ namespace LunkvayAPI.Chats.Services
                 );
 
             var user = senderResult.Result;
+
+            await _chatNotificationService.PinMessage(request.ChatId, message.Id, request.isPinned);
 
             return ServiceResult<ChatMessageDTO>.Success(
                 MapToDto(
@@ -371,6 +376,8 @@ namespace LunkvayAPI.Chats.Services
             message.DeletedAt = DateTime.UtcNow;
 
             await _dbContext.SaveChangesAsync();
+
+            await _chatNotificationService.DeleteMessage(request.ChatId, request.MessageId);
 
             return ServiceResult<bool>.Success(true);
         }

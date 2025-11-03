@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
 using System.Net;
-using System.Text.Json.Nodes;
 
 namespace LunkvayAPI.Avatars.Services
 {

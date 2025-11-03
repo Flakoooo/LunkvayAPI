@@ -17,7 +17,8 @@ namespace LunkvayAPI.Chats.Services
         LunkvayDBContext lunkvayDBContext,
         IUserService userService,
         IChatMemberSystemService chatMemberService,
-        IChatMessageSystemService chatMessageService
+        IChatMessageSystemService chatMessageService,
+        IChatNotificationService chatNotificationService
     ) : IChatService
     {
         private readonly ILogger<ChatService> _logger = logger;
@@ -25,6 +26,7 @@ namespace LunkvayAPI.Chats.Services
         private readonly IUserService _userService = userService;
         private readonly IChatMemberSystemService _chatMemberService = chatMemberService;
         private readonly IChatMessageSystemService _chatMessageService = chatMessageService;
+        private readonly IChatNotificationService _chatNotificationService = chatNotificationService;
 
         private static ChatDTO MapToChatDto(Chat chat, Guid currentUserId)
             => new()
@@ -222,6 +224,9 @@ namespace LunkvayAPI.Chats.Services
             }
 
             var chatDto = MapToChatDto(chat, userId);
+
+            await _chatNotificationService.UpdateChat(chatId, chatDto);
+
             return ServiceResult<ChatDTO>.Success(chatDto);
         }
 
@@ -251,6 +256,8 @@ namespace LunkvayAPI.Chats.Services
             chat.DeletedAt = DateTime.UtcNow;
 
             await _dbContext.SaveChangesAsync();
+
+            await _chatNotificationService.DeleteChat(chatId, chatId);
 
             return ServiceResult<bool>.Success(true);
         }

@@ -17,14 +17,16 @@ namespace LunkvayAPI.Chats.Services
         ILogger<ChatMemberService> logger,
         LunkvayDBContext lunkvayDBContext,
         IUserService userService,
-        IChatMessageSystemService chatMessageService
+        IChatMessageSystemService chatMessageService,
+        IChatNotificationService chatNotificationService
     ) : IChatMemberService
     {
         private readonly ILogger<ChatMemberService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
         private readonly IUserService _userService = userService;
         private readonly IChatMessageSystemService _chatMessageService = chatMessageService;
-        
+        private readonly IChatNotificationService _chatNotificationService = chatNotificationService;
+
 
         private async Task<ServiceResult<bool>> ValidateMemberUpdateRights(
             Guid initiatorId, Guid chatId,
@@ -323,7 +325,11 @@ namespace LunkvayAPI.Chats.Services
                 await _dbContext.SaveChangesAsync();
             }
 
-            return ServiceResult<ChatMemberDTO>.Success(MapToDto(chatMember));
+            var chatMemberDTO = MapToDto(chatMember);
+
+            await _chatNotificationService.UpdateMember(request.ChatId, chatMemberDTO);
+
+            return ServiceResult<ChatMemberDTO>.Success(chatMemberDTO);
         }
 
         public async Task<ServiceResult<bool>> DeleteMember(Guid initiatorId, DeleteChatMemberRequest request)
@@ -365,6 +371,8 @@ namespace LunkvayAPI.Chats.Services
             await _chatMessageService.CreateSystemChatMessage(
                 request.ChatId, $"{FormatUserName(user)} покинул чат", SystemMessageType.UserLeft
             );
+
+            await _chatNotificationService.DeleteMember(request.ChatId, request.MemberId);
 
             return ServiceResult<bool>.Success(true);
         }
