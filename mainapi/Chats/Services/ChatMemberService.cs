@@ -147,18 +147,11 @@ namespace LunkvayAPI.Chats.Services
         private static ChatMemberDTO MapToDto(ChatMember chatMember) => new()
         {
             Id = chatMember.Id,
-            Member = chatMember.Member != null ? new UserDTO
-            {
-                Id = chatMember.Member.Id,
-                UserName = chatMember.Member.UserName,
-                Email = chatMember.Member.Email,
-                FirstName = chatMember.Member.FirstName,
-                LastName = chatMember.Member.LastName,
-                CreatedAt = chatMember.Member.CreatedAt,
-                IsDeleted = chatMember.Member.IsDeleted,
-                LastLogin = chatMember.Member.LastLogin,
-                IsOnline = chatMember.Member.IsOnline,
-            } : null,
+            UserId = chatMember.MemberId,
+            UserName = chatMember.Member?.UserName != null ? chatMember.Member.UserName : "Удаленный пользователь",
+            FirstName = chatMember.Member?.FirstName,
+            LastName = chatMember.Member?.LastName,
+            IsOnline = chatMember.Member != null && chatMember.Member.IsOnline,
             MemberName = chatMember.MemberName,
             Role = chatMember.Role
         };

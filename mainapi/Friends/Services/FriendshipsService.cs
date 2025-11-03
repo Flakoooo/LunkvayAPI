@@ -7,10 +7,7 @@ using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Friends.Models.DTO;
 using LunkvayAPI.Friends.Models.Enums;
 using LunkvayAPI.Users.Services;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using System;
 using System.Linq.Expressions;
 using System.Net;
 
@@ -51,6 +48,7 @@ namespace LunkvayAPI.Friends.Services
                 Status = friendship.Status,
                 Labels = labels,
                 UserId = user.Id,
+                UserName = user.UserName,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 IsOnline = user.IsOnline
@@ -74,6 +72,7 @@ namespace LunkvayAPI.Friends.Services
                     FriendshipId = f.Id,
                     Status = includeStatus ? f.Status : null,
                     UserId = f.UserId1 == userId ? f.UserId2 : f.UserId1,
+                    UserName = f.UserId1 == userId ? f.User2!.UserName : f.User1!.UserName,
                     FirstName = f.UserId1 == userId ? f.User2!.FirstName : f.User1!.FirstName,
                     LastName = f.UserId1 == userId ? f.User2!.LastName : f.User1!.LastName,
                     IsOnline = f.UserId1 == userId ? f.User2!.IsOnline : f.User1!.IsOnline,
@@ -99,16 +98,31 @@ namespace LunkvayAPI.Friends.Services
 
             var isInitiator = friendship.InitiatorId == userId;
 
+            return friendship.Status switch
+            {
+                FriendshipStatus.Pending => ValidatePendingStatus(newStatus, isInitiator),
+                FriendshipStatus.Accepted => ValidateAcceptedStatus(newStatus),
+                _ => "Статус дружбы невозможно изменить",
+            };
+        }
+
+        private static string? ValidatePendingStatus(FriendshipStatus newStatus, bool isInitiator)
+        {
             if (isInitiator && newStatus != FriendshipStatus.Cancelled)
                 return FriendshipErrorCode.InitiatorCanOnlyCancel.GetDescription();
 
             if (!isInitiator && newStatus != FriendshipStatus.Accepted && newStatus != FriendshipStatus.Rejected)
                 return FriendshipErrorCode.ReceiverCanOnlyAcceptOrReject.GetDescription();
 
-            if (friendship.Status != FriendshipStatus.Pending)
-                return FriendshipErrorCode.CanOnlyUpdatePendingRequests.GetDescription();
-
             return null;
+        }
+
+        private static string? ValidateAcceptedStatus(FriendshipStatus newStatus)
+        {
+            if (newStatus == FriendshipStatus.Deleted)
+                return null;
+
+            return "Текущие дружеские отношения можно только отменить";
         }
 
         public async Task<ServiceResult<List<FriendshipDTO>>> GetFriends(
@@ -203,6 +217,7 @@ namespace LunkvayAPI.Friends.Services
                 .Select(u => new UserListItemDTO
                 {
                     UserId = u.Id,
+                    UserName = u.UserName,
                     FirstName = u.FirstName,
                     LastName = u.LastName,
                     IsOnline = u.IsOnline,
@@ -231,6 +246,7 @@ namespace LunkvayAPI.Friends.Services
                 .Select(f => new UserListItemDTO
                 {
                     UserId = f.UserId1 == userId ? f.UserId2 : f.UserId1,
+                    UserName = f.UserId1 == userId ? f.User2!.UserName : f.User1!.UserName,
                     FirstName = f.UserId1 == userId ? f.User2!.FirstName : f.User1!.FirstName,
                     LastName = f.UserId1 == userId ? f.User2!.LastName : f.User1!.LastName,
                     IsOnline = f.UserId1 == userId ? f.User2!.IsOnline : f.User1!.IsOnline

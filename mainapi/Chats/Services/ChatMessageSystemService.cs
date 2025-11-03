@@ -19,11 +19,17 @@ namespace LunkvayAPI.Chats.Services
         private readonly IChatNotificationService _chatNotificationService = chatNotificationService;
 
         private static ChatMessageDTO MapToDto(
-            ChatMessage message, UserDTO? userDTO, bool isCurrentUser
+            ChatMessage message,
+            Guid senderid, string? userName, string? firstName, string? LastName, bool? isOnline,
+            bool isCurrentUser
         ) => new()
         {
             Id = message.Id,
-            Sender = userDTO,
+            SenderId = senderid,
+            SenderUserName = userName,
+            SenderFirstName = firstName,
+            SenderLastName = LastName,
+            SenderIsOnline = isOnline,
             SystemMessageType = message.SystemMessageType,
             Message = message.Message,
             IsEdited = message.IsEdited,
@@ -49,7 +55,14 @@ namespace LunkvayAPI.Chats.Services
 
             await _dbContext.SaveChangesAsync();
 
-            await _chatNotificationService.SendMessage(chatId, MapToDto(newMessage, null, false));
+            await _chatNotificationService.SendMessage(
+                chatId, 
+                MapToDto(
+                    newMessage,
+                    Guid.Empty, null, null, null, null,
+                    false
+                )
+            );
 
             return ServiceResult<ChatMessage>.Success(newMessage);
         }

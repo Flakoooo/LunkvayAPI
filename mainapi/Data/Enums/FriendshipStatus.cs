@@ -14,6 +14,9 @@ namespace LunkvayAPI.Data.Enums
         Rejected, //Запрос отклонён
 
         [Description("Отменено")]
-        Cancelled //Запрос отменили
+        Cancelled, //Запрос отменили
+
+        [Description("Удалено")]
+        Deleted
     }
 }

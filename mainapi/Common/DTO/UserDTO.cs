@@ -4,12 +4,11 @@
     {
         public required Guid Id { get; set; }
         public required string UserName { get; set; }
-        public string? Email { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
-        public DateTime? CreatedAt { get; set; }
-        public bool? IsDeleted { get; set; }
-        public DateTime? LastLogin { get; set; }
-        public bool? IsOnline { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public bool IsDeleted { get; set; } = false;
+        public DateTime LastLogin { get; set; }
+        public bool IsOnline { get; set; } = false;
     }
 }

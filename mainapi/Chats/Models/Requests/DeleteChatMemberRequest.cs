@@ -5,9 +5,9 @@ namespace LunkvayAPI.Chats.Models.Requests
     public class DeleteChatMemberRequest
     {
         [Required]
-        public required Guid ChatId { get; set; }
+        public required Guid ChatId { get; init; }
 
         [Required]
-        public required Guid MemberId { get; set; }
+        public required Guid MemberId { get; init; }
     }
 }

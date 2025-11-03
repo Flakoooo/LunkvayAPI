@@ -26,7 +26,6 @@ namespace LunkvayAPI.Users.Services
                     {
                         Id = u.Id,
                         UserName = u.UserName,
-                        Email = u.Email,
                         FirstName = u.FirstName,
                         LastName = u.LastName,
                         CreatedAt = u.CreatedAt,
@@ -59,7 +58,6 @@ namespace LunkvayAPI.Users.Services
                 {
                     Id = u.Id,
                     UserName = u.UserName,
-                    Email = u.Email,
                     FirstName = u.FirstName,
                     LastName = u.LastName,
                     CreatedAt = u.CreatedAt,

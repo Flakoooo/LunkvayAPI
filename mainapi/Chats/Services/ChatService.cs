@@ -54,29 +54,21 @@ namespace LunkvayAPI.Chats.Services
                 Message = message.Message,
                 CreatedAt = message.CreatedAt,
                 SystemMessageType = message.SystemMessageType,
-                Sender = message.Sender != null 
-                    ? MapToUserDto(message.Sender, chatType, currentUserId) 
-                    : null
-            } : null;
-
-        private static UserDTO MapToUserDto(User user, ChatType chatType, Guid currentUserId)
-            => new()
-            {
-                Id = user.Id,
-                UserName = user.UserName,
-                FirstName = user.Id == currentUserId
+                SenderId = message.SenderId,
+                SenderUserName = message.Sender?.UserName,
+                SenderFirstName = message.SenderId == currentUserId
                     ? "Вы"
-                    : (chatType != ChatType.Personal 
-                        ? user.FirstName 
+                    : (chatType != ChatType.Personal
+                        ? message.Sender?.FirstName
                         : null
                     ),
-                LastName = chatType != ChatType.Personal && !(user.Id == currentUserId)
-                    ? (!string.IsNullOrEmpty(user.LastName) 
-                        ? user.LastName[0].ToString() 
+                SenderLastName = chatType != ChatType.Personal && !(message.SenderId == currentUserId)
+                    ? (!string.IsNullOrEmpty(message.Sender?.LastName)
+                        ? message.Sender?.LastName[0].ToString()
                         : null
                     )
                     : null
-            };
+            } : null;
 
         private static string FormatUserName(UserDTO? user)
         {

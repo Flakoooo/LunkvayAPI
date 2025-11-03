@@ -9,6 +9,7 @@ using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Users.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using System.Net;
 
 namespace LunkvayAPI.Chats.Services
@@ -30,11 +31,17 @@ namespace LunkvayAPI.Chats.Services
         private readonly IChatNotificationService _chatNotificationService = chatNotificationService;
 
         private static ChatMessageDTO MapToDto(
-            ChatMessage message, UserDTO? userDTO, bool isCurrentUser
+            ChatMessage message, 
+            Guid senderid, string? userName, string? firstName, string? LastName, bool? isOnline, 
+            bool isCurrentUser
         ) => new()
         {
             Id = message.Id,
-            Sender = userDTO,
+            SenderId = senderid,
+            SenderUserName = userName,
+            SenderFirstName = firstName,
+            SenderLastName = LastName,
+            SenderIsOnline = isOnline,
             SystemMessageType = message.SystemMessageType,
             Message = message.Message,
             IsEdited = message.IsEdited,
@@ -44,39 +51,30 @@ namespace LunkvayAPI.Chats.Services
             IsMyMessage = isCurrentUser
         };
 
-
-        public async Task<ServiceResult<List<ChatMessageDTO>>> GetChatMessages(Guid userId, Guid chatId, int page, int pageSize)
+        private async Task<ServiceResult<List<ChatMessageDTO>>> GetMessages(
+            Guid userId, int page, int pageSize,
+            Expression<Func<ChatMessage, bool>> predicate
+        )
         {
-            _logger.LogInformation("({Date}) Запрос списка сообщений для пользователя {UserId} в чате {ChatId}", DateTime.Now, userId, chatId);
-
             List<ChatMessageDTO> chatMessages = await _dbContext.ChatMessages
-                .Where(cm => cm.ChatId == chatId && !cm.IsDeleted)
+                .Where(predicate)
                 .OrderBy(cm => cm.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(cm => new ChatMessageDTO
+                .Select(cm => new
                 {
-                    Id = cm.Id,
-                    Sender = cm.Sender != null ? new UserDTO
-                    {
-                        Id = cm.Sender.Id,
-                        UserName = cm.Sender.UserName,
-                        FirstName = cm.Sender.FirstName,
-                        LastName = cm.Sender.LastName,
-                        Email = cm.Sender.Email,
-                        CreatedAt = cm.Sender.CreatedAt,
-                        IsDeleted = cm.Sender.IsDeleted,
-                        LastLogin = cm.Sender.LastLogin,
-                        IsOnline = cm.Sender.IsOnline
-                    } : null,
-                    SystemMessageType = cm.SystemMessageType,
-                    Message = cm.Message,
-                    IsEdited = cm.IsEdited,
-                    IsPinned = cm.IsPinned,
-                    CreatedAt = cm.CreatedAt,
-                    UpdatedAt = cm.UpdatedAt,
-                    IsMyMessage = cm.SenderId == userId
+                    Message = cm,
+                    cm.SenderId,
+                    UserName = cm.Sender != null ? cm.Sender.UserName : "Удаленный пользователь",
+                    FirstName = cm.Sender != null ? cm.Sender.FirstName : null,
+                    LastName = cm.Sender != null ? cm.Sender.LastName : null,
+                    IsOnline = cm.Sender != null && cm.Sender.IsOnline
                 })
+                .Select(x => MapToDto(
+                    x.Message,
+                    x.SenderId, x.UserName, x.FirstName, x.LastName, x.IsOnline,
+                    x.SenderId == userId
+                ))
                 .ToListAsync();
 
             _logger.LogInformation("({Date}) Получено {Count} сообщений", DateTime.UtcNow, chatMessages.Count);
@@ -84,43 +82,28 @@ namespace LunkvayAPI.Chats.Services
             return ServiceResult<List<ChatMessageDTO>>.Success(chatMessages);
         }
 
+
+        public async Task<ServiceResult<List<ChatMessageDTO>>> GetChatMessages(Guid userId, Guid chatId, int page, int pageSize)
+        {
+            _logger.LogInformation(
+                "({Date}) Запрос списка сообщений для пользователя {UserId} в чате {ChatId}", 
+                DateTime.Now, userId, chatId
+            );
+
+            return await GetMessages(
+                userId, page, pageSize, 
+                cm => cm.ChatId == chatId && !cm.IsDeleted
+            );
+        }
+
         public async Task<ServiceResult<List<ChatMessageDTO>>> GetPinnedChatMessages(Guid userId, Guid chatId, int page, int pageSize)
         {
             _logger.LogInformation("({Date}) Запрос списка сообщений для пользователя {UserId} в чате {ChatId}", DateTime.Now, userId, chatId);
 
-            List<ChatMessageDTO> chatMessages = await _dbContext.ChatMessages
-                .Where(cm => cm.ChatId == chatId && !cm.IsDeleted && cm.IsPinned)
-                .OrderBy(cm => cm.CreatedAt)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(cm => new ChatMessageDTO
-                {
-                    Id = cm.Id,
-                    Sender = cm.Sender != null ? new UserDTO
-                    {
-                        Id = cm.Sender.Id,
-                        UserName = cm.Sender.UserName,
-                        FirstName = cm.Sender.FirstName,
-                        LastName = cm.Sender.LastName,
-                        Email = cm.Sender.Email,
-                        CreatedAt = cm.Sender.CreatedAt,
-                        IsDeleted = cm.Sender.IsDeleted,
-                        LastLogin = cm.Sender.LastLogin,
-                        IsOnline = cm.Sender.IsOnline
-                    } : null,
-                    SystemMessageType = cm.SystemMessageType,
-                    Message = cm.Message,
-                    IsEdited = cm.IsEdited,
-                    IsPinned = cm.IsPinned,
-                    CreatedAt = cm.CreatedAt,
-                    UpdatedAt = cm.UpdatedAt,
-                    IsMyMessage = cm.SenderId == userId
-                })
-                .ToListAsync();
-
-            _logger.LogInformation("({Date}) Получено {Count} сообщений", DateTime.UtcNow, chatMessages.Count);
-
-            return ServiceResult<List<ChatMessageDTO>>.Success(chatMessages);
+            return await GetMessages(
+                userId, page, pageSize, 
+                cm => cm.ChatId == chatId && !cm.IsDeleted && cm.IsPinned
+            );
         }
 
         public async Task<ServiceResult<ChatMessageDTO>> CreateMessage(Guid senderId, CreateChatMessageRequest request)
@@ -181,9 +164,19 @@ namespace LunkvayAPI.Chats.Services
                 );
 
                 ServiceResult<UserDTO> senderResult = await _userService.GetUserById(senderId);
+                if (!senderResult.IsSuccess || senderResult.Result is null)
+                    return ServiceResult<ChatMessageDTO>.Failure(
+                        ErrorCode.InternalServerError.GetDescription(), 
+                        HttpStatusCode.InternalServerError
+                    );
+
                 var user = senderResult.Result;
 
-                var chatMessageDTO = MapToDto(chatMessage, user, chatMessage.SenderId == senderId);
+                var chatMessageDTO = MapToDto(
+                    chatMessage, 
+                    user.Id, user.UserName, user.FirstName, user.LastName, user.IsOnline, 
+                    chatMessage.SenderId == senderId
+                );
 
                 await _chatNotificationService.SendMessage(chatId, chatMessageDTO);
                 await transaction.CommitAsync();
@@ -244,10 +237,19 @@ namespace LunkvayAPI.Chats.Services
 
             await _dbContext.SaveChangesAsync();
 
+            ServiceResult<UserDTO> senderResult = await _userService.GetUserById(message.SenderId);
+            if (!senderResult.IsSuccess || senderResult.Result is null)
+                return ServiceResult<ChatMessageDTO>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(),
+                    HttpStatusCode.InternalServerError
+                );
+
+            var user = senderResult.Result;
+
             return ServiceResult<ChatMessageDTO>.Success(
                 MapToDto(
-                    message, 
-                    (await _userService.GetUserById(message.SenderId)).Result, 
+                    message,
+                    user.Id, user.UserName, user.FirstName, user.LastName, user.IsOnline,
                     message.SenderId == editorId
                 )
             );
@@ -290,10 +292,19 @@ namespace LunkvayAPI.Chats.Services
 
             await _userService.GetUserById(message.SenderId);
 
+            ServiceResult<UserDTO> senderResult = await _userService.GetUserById(message.SenderId);
+            if (!senderResult.IsSuccess || senderResult.Result is null)
+                return ServiceResult<ChatMessageDTO>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(),
+                    HttpStatusCode.InternalServerError
+                );
+
+            var user = senderResult.Result;
+
             return ServiceResult<ChatMessageDTO>.Success(
                 MapToDto(
                     message, 
-                    (await _userService.GetUserById(message.SenderId)).Result,
+                    user.Id, user.UserName, user.FirstName, user.LastName, user.IsOnline,
                     message.SenderId == initiatorId
                 )
             );

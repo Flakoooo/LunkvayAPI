@@ -6,9 +6,9 @@ namespace LunkvayAPI.Chats.Models.Requests
     public class CreatePersonalChatRequest
     {
         [Required]
-        public required UserDTO Interlocutor { get; set; }
+        public required UserDTO Interlocutor { get; init; }
 
         [Required]
-        public required string Message { get; set; }
+        public required string Message { get; init; }
     }
 }
