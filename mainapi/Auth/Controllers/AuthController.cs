@@ -17,7 +17,7 @@ namespace LunkvayAPI.Auth.Controllers
         private readonly ILogger<AuthController> _logger = logger;
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
+        public async Task<ActionResult<string>> Login([FromBody] LoginRequest loginRequest)
         {
             _logger.LogInformation("Вход пользователя {Email}", loginRequest.Email);
             ServiceResult<string> result = await _authService.Login(loginRequest);
@@ -39,15 +39,15 @@ namespace LunkvayAPI.Auth.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        public async Task<ActionResult> Register([FromBody] RegisterRequest request)
         {
             _logger.LogInformation("Регистрация пользователя {Login}", request.UserName);
             ServiceResult<User> result = await _authService.Register(request);
 
-            if (result.IsSuccess && result.Result is not null)
+            if (result.IsSuccess)
             {
-                _logger.LogDebug("Успешная регистрация пользователя {Login}", result.Result.UserName);
-                return Ok(result.Result);
+                _logger.LogDebug("Успешная регистрация пользователя {Login}", result.Result?.UserName);
+                return Ok();
             }
 
             _logger.LogError("Ошибка: (Status: {StatusCode}) {Error}", (int)result.StatusCode, result.Error);
