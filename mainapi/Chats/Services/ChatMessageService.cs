@@ -119,8 +119,11 @@ namespace LunkvayAPI.Chats.Services
             try
             {
                 Guid? chatId = null;
+                // если чат существует
+                if (request.ChatId.HasValue && request.ChatId.Value != Guid.Empty) 
+                    chatId = request.ChatId.Value;
                 // если сообщение НЕ в чат, а кому то КОНКРЕТНОМУ и оно НОВОЕ
-                if (request.ChatId == Guid.Empty && request.ReceiverId is not null && request.ReceiverId != Guid.Empty)
+                else if (request.ReceiverId.HasValue && request.ReceiverId.Value != Guid.Empty)
                 {
                     var newChat = await _chatService.CreatePersonalChatBySystem(
                         Guid.Empty, request.ReceiverId.Value, ChatType.Personal, null
@@ -141,7 +144,7 @@ namespace LunkvayAPI.Chats.Services
 
                 //если Id чата все еще null, то значит не переда Id чата
                 if (!chatId.HasValue)
-                    return ServiceResult<ChatMessageDTO>.Failure("Id чата не может быть пустым");
+                    return ServiceResult<ChatMessageDTO>.Failure("Не указан получатель или чат");
 
                 if (!await _chatMemberService.ExistAnyChatMembersBySystem(cm => 
                     cm.ChatId == chatId && cm.MemberId == senderId && !cm.IsDeleted)
