@@ -5,7 +5,7 @@ namespace LunkvayAPI.Chats.Models.DTO
     public record class ChatMessageDTO
     {
         public Guid Id { get; set; }
-        public Guid SenderId { get; set; } = Guid.Empty;
+        public Guid? SenderId { get; set; } = Guid.Empty;
         public string? SenderUserName { get; set; }
         public string? SenderFirstName { get; set; }
         public string? SenderLastName { get; set; }

@@ -8,7 +8,6 @@ using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Users.Services;
-using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using System.Net;
@@ -33,7 +32,7 @@ namespace LunkvayAPI.Chats.Services
 
         private static ChatMessageDTO MapToDto(
             ChatMessage message, 
-            Guid senderid, string? userName, string? firstName, string? LastName, bool? isOnline, 
+            Guid? senderid, string? userName, string? firstName, string? LastName, bool? isOnline, 
             bool isCurrentUser
         ) => new()
         {
@@ -119,12 +118,12 @@ namespace LunkvayAPI.Chats.Services
 
             try
             {
-                Guid chatId = request.ChatId;
+                Guid? chatId = null;
                 // если сообщение НЕ в чат, а кому то КОНКРЕТНОМУ и оно НОВОЕ
-                if (request.ChatId == Guid.Empty && request.ReceiverId != Guid.Empty)
+                if (request.ChatId == Guid.Empty && request.ReceiverId is not null && request.ReceiverId != Guid.Empty)
                 {
                     var newChat = await _chatService.CreatePersonalChatBySystem(
-                        Guid.Empty, request.ReceiverId, ChatType.Personal, null
+                        Guid.Empty, request.ReceiverId.Value, ChatType.Personal, null
                     );
                     if (!newChat.IsSuccess || newChat.Result is null)
                         throw new Exception(
@@ -132,7 +131,7 @@ namespace LunkvayAPI.Chats.Services
                         );
                     chatId = newChat.Result.Id;
                     var newChatMembers = await _chatMemberService.CreatePersonalMembersBySystem(
-                        chatId, senderId, request.ReceiverId
+                        chatId.Value, senderId, request.ReceiverId.Value
                     );
                     if (!newChatMembers.IsSuccess)
                         throw new Exception(
@@ -141,7 +140,7 @@ namespace LunkvayAPI.Chats.Services
                 }
 
                 //если Id чата все еще null, то значит не переда Id чата
-                if (chatId == Guid.Empty)
+                if (!chatId.HasValue)
                     return ServiceResult<ChatMessageDTO>.Failure("Id чата не может быть пустым");
 
                 if (!await _chatMemberService.ExistAnyChatMembersBySystem(cm => 
@@ -151,7 +150,7 @@ namespace LunkvayAPI.Chats.Services
 
                 var chatMessage = new ChatMessage
                 {
-                    ChatId = chatId,
+                    ChatId = chatId.Value,
                     SenderId = senderId,
                     SystemMessageType = SystemMessageType.None,
                     Message = request.Message
@@ -161,7 +160,7 @@ namespace LunkvayAPI.Chats.Services
                 await _dbContext.SaveChangesAsync();
 
                 var chat = await _chatService.UpdateChatLastMessageBySystem(
-                    chatId, chatMessage.Id
+                    chatId.Value, chatMessage.Id
                 );
 
                 ServiceResult<UserDTO> senderResult = await _userService.GetUserById(senderId);
@@ -179,7 +178,7 @@ namespace LunkvayAPI.Chats.Services
                     chatMessage.SenderId == senderId
                 );
 
-                await _chatNotificationService.SendMessage(chatId, chatMessageDTO);
+                await _chatNotificationService.SendMessage(chatId.Value, chatMessageDTO);
                 await transaction.CommitAsync();
 
                 return ServiceResult<ChatMessageDTO>.Success(chatMessageDTO);
@@ -229,6 +228,7 @@ namespace LunkvayAPI.Chats.Services
                     "Отказано в доступе", HttpStatusCode.Forbidden
                 );
 
+            // если сообщение системное
             if (message.SystemMessageType != SystemMessageType.None)
                 return ServiceResult<ChatMessageDTO>.Failure("Нельзя редактировать системные сообщения");
 
@@ -238,7 +238,7 @@ namespace LunkvayAPI.Chats.Services
 
             await _dbContext.SaveChangesAsync();
 
-            ServiceResult<UserDTO> senderResult = await _userService.GetUserById(message.SenderId);
+            ServiceResult<UserDTO> senderResult = await _userService.GetUserById(message.SenderId.Value);
             if (!senderResult.IsSuccess || senderResult.Result is null)
                 return ServiceResult<ChatMessageDTO>.Failure(
                     ErrorCode.InternalServerError.GetDescription(),
@@ -293,23 +293,25 @@ namespace LunkvayAPI.Chats.Services
 
             await _dbContext.SaveChangesAsync();
 
-            await _userService.GetUserById(message.SenderId);
+            UserDTO? user = null;
+            if (message.SenderId.HasValue)
+            {
+                ServiceResult<UserDTO> senderResult = await _userService.GetUserById(message.SenderId.Value);
+                if (!senderResult.IsSuccess || senderResult.Result is null)
+                    return ServiceResult<ChatMessageDTO>.Failure(
+                        ErrorCode.InternalServerError.GetDescription(),
+                        HttpStatusCode.InternalServerError
+                    );
 
-            ServiceResult<UserDTO> senderResult = await _userService.GetUserById(message.SenderId);
-            if (!senderResult.IsSuccess || senderResult.Result is null)
-                return ServiceResult<ChatMessageDTO>.Failure(
-                    ErrorCode.InternalServerError.GetDescription(),
-                    HttpStatusCode.InternalServerError
-                );
-
-            var user = senderResult.Result;
+                user = senderResult.Result;
+            }
 
             await _chatNotificationService.PinMessage(request.ChatId, message.Id, request.isPinned);
 
             return ServiceResult<ChatMessageDTO>.Success(
                 MapToDto(
                     message, 
-                    user.Id, user.UserName, user.FirstName, user.LastName, user.IsOnline,
+                    user?.Id, user?.UserName, user?.FirstName, user?.LastName, user?.IsOnline,
                     message.SenderId == initiatorId
                 )
             );

@@ -7,8 +7,8 @@ namespace LunkvayAPI.Chats.Models.Requests
         [Required]
         public required string Message { get; init; }
 
-        public Guid ChatId { get; init; }
+        public Guid? ChatId { get; init; }
 
-        public Guid ReceiverId { get; init; }
+        public Guid? ReceiverId { get; init; }
     }
 }

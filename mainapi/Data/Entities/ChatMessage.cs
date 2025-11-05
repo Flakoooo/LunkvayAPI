@@ -1,5 +1,4 @@
 ﻿using LunkvayAPI.Data.Enums;
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace LunkvayAPI.Data.Entities
@@ -14,7 +13,7 @@ namespace LunkvayAPI.Data.Entities
         public required Guid ChatId { get; set; }
 
         [Column("sender_id")]
-        public Guid SenderId { get; set; }
+        public Guid? SenderId { get; set; }
 
         [Column("system_message_type")]
         public required SystemMessageType SystemMessageType { get; set; }
