@@ -10,31 +10,23 @@ namespace LunkvayAPI.Middleware
         private readonly RequestDelegate _next = next;
         private readonly IWebSocketConnectionManager _connectionManager = connectionManager;
 
-        public class WebSocketCommand
+        private static Guid? GetRoomIdFromContext(HttpContext context)
         {
-            public string Type { get; set; } = string.Empty;
-            public Guid? RoomId { get; set; }
-            public object? Data { get; set; }
-        }
+            if (context.Request.Query.TryGetValue("roomId", out var roomIdStr) &&
+                Guid.TryParse(roomIdStr, out var roomId)) return roomId;
 
-        public class WebSocketResponse
-        {
-            public string Type { get; set; } = string.Empty;
-            public object? Data { get; set; }
-            public bool Success { get; set; } = true;
-            public string? Error { get; set; }
+            if (context.Request.Headers.TryGetValue("X-Room-Id", out var headerRoomId) &&
+                Guid.TryParse(headerRoomId, out var roomIdFromHeader)) return roomIdFromHeader;
+
+            return null;
         }
 
         public async Task InvokeAsync(HttpContext context)
         {
             if (context.Request.Path == "/ws" && context.WebSockets.IsWebSocketRequest)
-            {
                 await HandleWebSocketConnection(context);
-            }
             else
-            {
                 await _next(context);
-            }
         }
 
         private async Task HandleWebSocketConnection(HttpContext context)
@@ -42,24 +34,24 @@ namespace LunkvayAPI.Middleware
             var webSocket = await context.WebSockets.AcceptWebSocketAsync();
             var connectionId = Guid.NewGuid().ToString();
 
-            Console.WriteLine($"WebSocket connection established: {connectionId}");
+            var roomId = GetRoomIdFromContext(context);
 
-            try
+            if (roomId.HasValue)
             {
-                await HandleWebSocketMessages(webSocket, connectionId);
+                _connectionManager.AddConnection(roomId.Value, webSocket, connectionId);
+                Console.WriteLine($"Client {connectionId} joined room {roomId}");
             }
-            catch (WebSocketException ex)
+            else
             {
-                Console.WriteLine($"WebSocket error: {ex.Message}");
+                await webSocket.CloseAsync(WebSocketCloseStatus.PolicyViolation,
+                    "RoomId is required", CancellationToken.None);
+                return;
             }
-            finally
-            {
-                _connectionManager.RemoveConnection(connectionId);
-                Console.WriteLine($"WebSocket connection closed: {connectionId}");
-            }
+
+            await HandleWebSocketMessages(webSocket, connectionId, roomId.Value);
         }
 
-        private async Task HandleWebSocketMessages(WebSocket webSocket, string connectionId)
+        private async Task HandleWebSocketMessages(WebSocket webSocket, string connectionId, Guid roomId)
         {
             var buffer = new byte[1024 * 4];
 
@@ -70,81 +62,15 @@ namespace LunkvayAPI.Middleware
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
                     var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    await ProcessWebSocketMessage(message, webSocket, connectionId);
+                    Console.WriteLine($"Received message from {connectionId}: {message}");
                 }
                 else if (result.MessageType == WebSocketMessageType.Close)
                 {
+                    _connectionManager.RemoveConnection(connectionId);
                     await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closed by client", CancellationToken.None);
                     break;
                 }
             }
-        }
-
-        private async Task ProcessWebSocketMessage(string message, WebSocket webSocket, string connectionId)
-        {
-            try
-            {
-                var command = JsonSerializer.Deserialize<WebSocketCommand>(message);
-                if (command == null) return;
-
-                switch (command.Type)
-                {
-                    case "JoinRoom":
-                        if (command.RoomId.HasValue)
-                        {
-                            _connectionManager.AddConnection(command.RoomId.Value, webSocket, connectionId);
-                            var response = new WebSocketResponse
-                            {
-                                Type = "JoinedRoom",
-                                Data = new { RoomId = command.RoomId.Value }
-                            };
-                            await SendWebSocketMessage(webSocket, response);
-                        }
-                        break;
-
-                    case "LeaveRoom":
-                        if (command.RoomId.HasValue)
-                        {
-                            _connectionManager.RemoveConnection(connectionId);
-                            var response = new WebSocketResponse
-                            {
-                                Type = "LeftRoom",
-                                Data = new { RoomId = command.RoomId.Value }
-                            };
-                            await SendWebSocketMessage(webSocket, response);
-                        }
-                        break;
-
-                    default:
-                        var errorResponse = new WebSocketResponse
-                        {
-                            Type = "Error",
-                            Success = false,
-                            Error = $"Unknown command: {command.Type}"
-                        };
-                        await SendWebSocketMessage(webSocket, errorResponse);
-                        break;
-                }
-            }
-            catch (JsonException ex)
-            {
-                var errorResponse = new WebSocketResponse
-                {
-                    Type = "Error",
-                    Success = false,
-                    Error = $"Invalid JSON: {ex.Message}"
-                };
-                await SendWebSocketMessage(webSocket, errorResponse);
-            }
-        }
-
-        private static async Task SendWebSocketMessage(WebSocket webSocket, object message)
-        {
-            var json = JsonSerializer.Serialize(message);
-            var bytes = Encoding.UTF8.GetBytes(json);
-            var segment = new ArraySegment<byte>(bytes);
-
-            await webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
         }
     }
 }
