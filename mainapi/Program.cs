@@ -5,8 +5,11 @@ using LunkvayAPI.Chats.Controllers;
 using LunkvayAPI.Chats.Services;
 using LunkvayAPI.Chats.Services.Interfaces;
 using LunkvayAPI.Common.Filters;
+using LunkvayAPI.Common.Interfaces;
+using LunkvayAPI.Common.Managers;
 using LunkvayAPI.Data;
 using LunkvayAPI.Friends.Services;
+using LunkvayAPI.Middleware;
 using LunkvayAPI.Profiles.Services;
 using LunkvayAPI.Users.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -106,13 +109,13 @@ namespace LunkvayAPI
             services.AddScoped<IChatMessageService, ChatMessageService>();
             services.AddScoped<IChatMessageSystemService, ChatMessageSystemService>();
 
-            services.AddSignalR();
-
             services.AddControllers(options =>
             {
                 options.Filters.Add<AuthorizationFilter>();
                 options.Filters.Add<GlobalExceptionFilter>();
             });
+            services.AddSignalR();
+            services.AddSingleton<IWebSocketConnectionManager, WebSocketConnectionManager>();
 
             services.AddOpenApi("v1");
         }
@@ -123,7 +126,13 @@ namespace LunkvayAPI
             app.UseAuthorization();
 
             app.UseCors("Policy");
+
+            app.UseWebSockets();
+
+            app.UseMiddleware<WebSocketMiddleware>();
+
             app.MapHub<ChatHub>("/chatHub");
+
             app.MapControllers();
         }
 
