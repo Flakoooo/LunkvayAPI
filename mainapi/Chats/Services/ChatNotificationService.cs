@@ -89,7 +89,9 @@ namespace LunkvayAPI.Chats.Services
             );
         }
 
-        public async Task PinMessage(Guid roomId, Guid messageId, bool isPinned)
+        public async Task PinMessage(
+            Guid roomId, Guid messageId, bool isPinned, DateTime? updatedAt
+        )
         {
             await _hubContext.Clients.Group(roomId.ToString())
                 .SendAsync("MessagePinned", messageId, isPinned);
@@ -98,7 +100,11 @@ namespace LunkvayAPI.Chats.Services
                 roomId, 
                 new { 
                     Type = "MessagePinned", 
-                    Data = new { MessageId = messageId, IsPinned = isPinned } 
+                    Data = new { 
+                        MessageId = messageId, 
+                        IsPinned = isPinned,
+                        UpdatedAt = updatedAt
+                    } 
                 }
             );
         }

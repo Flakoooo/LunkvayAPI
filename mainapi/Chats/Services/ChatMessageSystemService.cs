@@ -36,6 +36,7 @@ namespace LunkvayAPI.Chats.Services
             IsPinned = message.IsPinned,
             CreatedAt = message.CreatedAt,
             UpdatedAt = message.UpdatedAt,
+            PinnedAt = message.PinnedAt,
             IsMyMessage = isCurrentUser
         };
 

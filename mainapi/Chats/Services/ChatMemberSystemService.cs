@@ -6,6 +6,7 @@ using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Linq.Expressions;
 
 namespace LunkvayAPI.Chats.Services
@@ -75,13 +76,13 @@ namespace LunkvayAPI.Chats.Services
         }
 
         public async Task<ServiceResult<List<ChatMember>>> CreateGroupMembersBySystem(
-            Guid chatId, Guid creatorId, IList<UserDTO> members
+            Guid chatId, Guid creatorId, IList<Guid> members
         )
         {
             var chatMembers = new List<ChatMember>();
 
-            if (members.Any(u => u.Id == creatorId))
-                members.Remove(members.First(u => u.Id == creatorId));
+            if (members.Any(guid => guid == creatorId))
+                members.Remove(members.First(guid => guid == creatorId));
 
             chatMembers.Add(new ChatMember
             {
@@ -90,12 +91,12 @@ namespace LunkvayAPI.Chats.Services
                 Role = ChatMemberRole.Owner
             });
 
-            foreach (var member in members.Where(m => m.Id != creatorId))
+            foreach (var member in members.Where(guid => guid != creatorId))
             {
                 chatMembers.Add(new ChatMember
                 {
                     ChatId = chatId,
-                    MemberId = member.Id,
+                    MemberId = member,
                     Role = ChatMemberRole.Member
                 });
             }

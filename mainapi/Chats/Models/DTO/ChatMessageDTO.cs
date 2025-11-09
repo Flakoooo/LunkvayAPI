@@ -16,6 +16,7 @@ namespace LunkvayAPI.Chats.Models.DTO
         public bool IsPinned { get; set; } = false;
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public DateTime? PinnedAt { get; set; } = null;
         public bool IsMyMessage { get; set; } = false;
     }
 }

@@ -16,7 +16,7 @@ namespace LunkvayAPI.Chats.Services.Interfaces
             Guid chatId, Guid memberId1, Guid memberId2
         );
         Task<ServiceResult<List<ChatMember>>> CreateGroupMembersBySystem(
-            Guid chatId, Guid creatorId, IList<UserDTO> members
+            Guid chatId, Guid creatorId, IList<Guid> members
         );
     }
 }

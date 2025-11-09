@@ -48,6 +48,7 @@ namespace LunkvayAPI.Chats.Services
             IsPinned = message.IsPinned,
             CreatedAt = message.CreatedAt,
             UpdatedAt = message.UpdatedAt,
+            PinnedAt = message.PinnedAt,
             IsMyMessage = isCurrentUser
         };
 
@@ -293,6 +294,7 @@ namespace LunkvayAPI.Chats.Services
 
             message.IsPinned = request.isPinned;
             message.PinnedAt = request.isPinned ? DateTime.UtcNow : null;
+            message.UpdatedAt = DateTime.UtcNow;
 
             await _dbContext.SaveChangesAsync();
 
@@ -309,7 +311,9 @@ namespace LunkvayAPI.Chats.Services
                 user = senderResult.Result;
             }
 
-            await _chatNotificationService.PinMessage(request.ChatId, message.Id, request.isPinned);
+            await _chatNotificationService.PinMessage(
+                request.ChatId, message.Id, request.isPinned, message.UpdatedAt
+            );
 
             return ServiceResult<ChatMessageDTO>.Success(
                 MapToDto(

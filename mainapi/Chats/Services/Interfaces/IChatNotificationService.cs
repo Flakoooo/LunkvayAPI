@@ -17,6 +17,8 @@ namespace LunkvayAPI.Chats.Services.Interfaces
         Task SendMessage(Guid roomId, ChatMessageDTO message);
         Task UpdateMessage(Guid roomId, ChatMessageDTO updatedMessage);
         Task DeleteMessage(Guid roomId, Guid messageId);
-        Task PinMessage(Guid roomId, Guid messageId, bool isPinned);
+        Task PinMessage(
+            Guid roomId, Guid messageId, bool isPinned, DateTime? updatedAt
+        );
     }
 }

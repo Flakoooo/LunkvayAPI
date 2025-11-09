@@ -1,6 +1,4 @@
-﻿using LunkvayAPI.Common.DTO;
-using LunkvayAPI.Data.Enums;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace LunkvayAPI.Chats.Models.Requests
 {
@@ -10,6 +8,6 @@ namespace LunkvayAPI.Chats.Models.Requests
         public required string Name { get; init; }
 
         [Required]
-        public required IList<UserDTO> Members { get; init; }
+        public required IList<Guid> Members { get; init; }
     }
 }
