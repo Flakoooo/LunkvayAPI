@@ -58,7 +58,7 @@ namespace LunkvayAPI.Chats.Services
         {
             List<ChatMessageDTO> chatMessages = await _dbContext.ChatMessages
                 .Where(predicate)
-                .OrderBy(cm => cm.CreatedAt)
+                .OrderByDescending(cm => cm.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(cm => new

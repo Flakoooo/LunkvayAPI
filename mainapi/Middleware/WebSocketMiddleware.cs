@@ -1,7 +1,6 @@
 ﻿using LunkvayAPI.Common.Interfaces;
 using System.Net.WebSockets;
 using System.Text;
-using System.Text.Json;
 
 namespace LunkvayAPI.Middleware
 {
@@ -48,10 +47,10 @@ namespace LunkvayAPI.Middleware
                 return;
             }
 
-            await HandleWebSocketMessages(webSocket, connectionId, roomId.Value);
+            await HandleWebSocketMessages(webSocket, connectionId);
         }
 
-        private async Task HandleWebSocketMessages(WebSocket webSocket, string connectionId, Guid roomId)
+        private async Task HandleWebSocketMessages(WebSocket webSocket, string connectionId)
         {
             var buffer = new byte[1024 * 4];
 

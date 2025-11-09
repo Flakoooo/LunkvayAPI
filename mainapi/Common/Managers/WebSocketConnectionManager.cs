@@ -2,7 +2,9 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace LunkvayAPI.Common.Managers
 {
@@ -10,6 +12,37 @@ namespace LunkvayAPI.Common.Managers
     {
         private readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, WebSocket>> _roomConnections = new();
         private readonly ConcurrentDictionary<string, Guid> _connectionRooms = new();
+        private readonly Lazy<JsonSerializerOptions> _jsonOptions;
+
+        public WebSocketConnectionManager()
+        {
+            _jsonOptions = new Lazy<JsonSerializerOptions>(CreateJsonOptions);
+        }
+
+        private class WebSocketDateTimeConverter : JsonConverter<DateTime>
+        {
+            public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            {
+                if (reader.TryGetDateTime(out DateTime date))
+                    return date;
+
+                if (DateTime.TryParse(reader.GetString(), out date))
+                    return date;
+
+                return default;
+            }
+
+            public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
+                => writer.WriteStringValue(value.ToString("yyyy-MM-ddTHH:mm:ss.ffffff"));
+        }
+
+        private static JsonSerializerOptions CreateJsonOptions() => new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = false,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            Converters = { new WebSocketDateTimeConverter() }
+        };
 
         public void AddConnection(Guid roomId, WebSocket webSocket, string connectionId)
         {
@@ -42,7 +75,7 @@ namespace LunkvayAPI.Common.Managers
         {
             if (_roomConnections.TryGetValue(roomId, out var connections))
             {
-                var json = JsonSerializer.Serialize(message);
+                var json = JsonSerializer.Serialize(message, _jsonOptions.Value);
                 var bytes = Encoding.UTF8.GetBytes(json);
                 var segment = new ArraySegment<byte>(bytes);
 
@@ -62,7 +95,7 @@ namespace LunkvayAPI.Common.Managers
 
         public async Task SendToAllAsync(object message)
         {
-            var json = JsonSerializer.Serialize(message);
+            var json = JsonSerializer.Serialize(message, _jsonOptions.Value);
             var bytes = Encoding.UTF8.GetBytes(json);
             var segment = new ArraySegment<byte>(bytes);
 
