@@ -22,6 +22,11 @@ namespace LunkvayAPI.Chats.Services
         public async Task<bool> ExistAnyChatMembersBySystem(Expression<Func<ChatMember, bool>> predicate)
             => await _dbContext.ChatMembers.AsNoTracking().AnyAsync(predicate);
 
+        public async Task<List<ChatMember>> GetChatMembersByChatIdBySystem(Guid chatId)
+            => await _dbContext.ChatMembers
+                .Where(cm => cm.ChatId == chatId)
+                .ToListAsync();
+
         public async Task<ServiceResult<ChatMember>> CreateMemberBySystem(
             Guid chatId, Guid memberId, ChatMemberRole role
         )

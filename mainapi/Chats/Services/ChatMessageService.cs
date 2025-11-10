@@ -120,27 +120,41 @@ namespace LunkvayAPI.Chats.Services
             try
             {
                 Guid? chatId = null;
-                // если чат существует
-                if (request.ChatId.HasValue && request.ChatId.Value != Guid.Empty) 
+
+                // если указан id существующего чата
+                if (request.ChatId.HasValue && request.ChatId.Value != Guid.Empty)
                     chatId = request.ChatId.Value;
                 // если сообщение НЕ в чат, а кому то КОНКРЕТНОМУ и оно НОВОЕ
                 else if (request.ReceiverId.HasValue && request.ReceiverId.Value != Guid.Empty)
                 {
-                    var newChat = await _chatService.CreatePersonalChatBySystem(
-                        Guid.Empty, request.ReceiverId.Value, ChatType.Personal, null
-                    );
-                    if (!newChat.IsSuccess || newChat.Result is null)
-                        throw new Exception(
-                            newChat.Error ?? ErrorCode.InternalServerError.GetDescription()
+                    if (request.ReceiverId.Value == senderId)
+                        return ServiceResult<ChatMessageDTO>.Failure("Нельзя отправить сообщение самому себе");
+
+                    var existingChatId 
+                        = await _chatService.FindPersonalChatBetweenUsersBySystem(senderId, request.ReceiverId.Value);
+
+                    if (existingChatId.HasValue)
+                        chatId = existingChatId.Value;
+                    else
+                    {
+                        var newChat = await _chatService.CreatePersonalChatBySystem(
+                            ChatType.Personal, null
                         );
-                    chatId = newChat.Result.Id;
-                    var newChatMembers = await _chatMemberService.CreatePersonalMembersBySystem(
-                        chatId.Value, senderId, request.ReceiverId.Value
-                    );
-                    if (!newChatMembers.IsSuccess)
-                        throw new Exception(
-                            newChatMembers.Error ?? ErrorCode.InternalServerError.GetDescription()
+                        if (!newChat.IsSuccess || newChat.Result is null)
+                            return ServiceResult<ChatMessageDTO>.Failure(
+                                newChat.Error ?? "Не удалось создать чат",
+                                HttpStatusCode.InternalServerError
+                            );
+                        chatId = newChat.Result.Id;
+                        var newChatMembers = await _chatMemberService.CreatePersonalMembersBySystem(
+                            chatId.Value, senderId, request.ReceiverId.Value
                         );
+                        if (!newChatMembers.IsSuccess)
+                            return ServiceResult<ChatMessageDTO>.Failure(
+                                newChatMembers.Error ?? "Не удалось добавить участников в чат",
+                                HttpStatusCode.InternalServerError
+                            );
+                    }
                 }
 
                 //если Id чата все еще null, то значит не переда Id чата

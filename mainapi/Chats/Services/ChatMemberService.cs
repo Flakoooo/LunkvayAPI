@@ -126,8 +126,10 @@ namespace LunkvayAPI.Chats.Services
             return ServiceResult<bool>.Success(true);
         }
 
-        private async Task<ServiceResult<bool>> ValidateRoleChange(Guid initiatorId, Guid chatId,
-            ChatMember targetMember, ChatMemberRole newRole)
+        private async Task<ServiceResult<bool>> ValidateRoleChange(
+            Guid initiatorId, Guid chatId,
+            ChatMember targetMember, ChatMemberRole newRole
+        )
         {
             var initiator = await _dbContext.ChatMembers
                 .FirstOrDefaultAsync(cm =>

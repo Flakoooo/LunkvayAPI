@@ -23,13 +23,13 @@ namespace LunkvayAPI.Chats.Controllers
         private const string DEFAULT_MEDIA_TYPE = MediaTypeNames.Image.Webp;
 
 
-        [HttpGet("{chatId}")]
+        [HttpGet("{userId}/{chatId}")]
         [AllowAnonymous]
-        public async Task<ActionResult> GetUserAvatarByUserId(Guid chatId)
+        public async Task<ActionResult> GetChatImageByUserId(Guid userId, Guid chatId)
         {
             _logger.LogInformation("Запрос изображения чата {ChatId}", chatId);
 
-            ServiceResult<byte[]> result = await _chatImageService.GetChatImageByChatId(chatId);
+            ServiceResult<byte[]> result = await _chatImageService.GetChatImageByChatId(userId, chatId);
 
             if (!result.IsSuccess || result.Result is null)
             {
@@ -42,7 +42,7 @@ namespace LunkvayAPI.Chats.Controllers
         }
 
         [HttpPost("{chatId}")]
-        public async Task<ActionResult> UploadAvatar(Guid chatId, IFormFile avatarFile)
+        public async Task<ActionResult> UploadChatImage(Guid chatId, IFormFile avatarFile)
         {
             Guid userId = (Guid)HttpContext.Items["UserId"]!;
 

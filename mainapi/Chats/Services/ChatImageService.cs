@@ -1,10 +1,10 @@
-﻿using LunkvayAPI.Chats.Services.Interfaces;
+﻿using LunkvayAPI.Avatars.Services;
+using LunkvayAPI.Chats.Services.Interfaces;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
-using LunkvayAPI.Users.Services;
 using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
@@ -16,9 +16,9 @@ namespace LunkvayAPI.Chats.Services
     {
         private readonly ILogger<ChatImageService> _logger;
         private readonly LunkvayDBContext _dbContext;
-        private readonly IUserService _userService;
         private readonly IChatSystemService _chatService;
         private readonly IChatMemberSystemService _chatMemberService;
+        private readonly IAvatarService _avatarService;
         private readonly string? _chatImagesPath;
 
         private const string DEFAULT_IMAGE_EXTENSION = "webp";
@@ -30,9 +30,9 @@ namespace LunkvayAPI.Chats.Services
             IConfiguration configuration,
             ILogger<ChatImageService> logger,
             LunkvayDBContext lunkvayDBContext,
-            IUserService userService,
             IChatSystemService chatService,
-            IChatMemberSystemService chatMemberService
+            IChatMemberSystemService chatMemberService,
+            IAvatarService avatarService
         )
         {
             string error = "Путь к изображениям чата не указан или отсуствует файл конфигурации";
@@ -43,9 +43,9 @@ namespace LunkvayAPI.Chats.Services
 
             _logger = logger;
             _dbContext = lunkvayDBContext;
-            _userService = userService;
             _chatService = chatService;
             _chatMemberService = chatMemberService;
+            _avatarService = avatarService;
             _chatImagesPath = Path.Combine(basePath, chatImages);
 
             if (string.IsNullOrEmpty(DEFAULT_CHAT_IMAGE_NAME))
@@ -57,11 +57,8 @@ namespace LunkvayAPI.Chats.Services
             Directory.CreateDirectory(_chatImagesPath);
         }
 
-        public async Task<ServiceResult<byte[]>> GetChatImageByChatId(Guid chatId)
+        private async Task<ServiceResult<byte[]>> GetDefaultChatImage()
         {
-            if (chatId == Guid.Empty)
-                return ServiceResult<byte[]>.Failure("Id чата не может быть пустым");
-
             if (string.IsNullOrEmpty(_chatImagesPath))
             {
                 _logger.LogCritical("Путь к изображениям чата не задан!");
@@ -70,44 +67,6 @@ namespace LunkvayAPI.Chats.Services
                 );
             }
 
-            string? fileName = await _dbContext.ChatImages
-                .AsNoTracking()
-                .Where(ci => ci.ChatId == chatId)
-                .Select(ci => ci.FileName)
-                .FirstOrDefaultAsync();
-
-            string filePath = Path.Combine(_chatImagesPath, fileName ?? DEFAULT_CHAT_IMAGE_NAME);
-
-            if (File.Exists(filePath))
-            {
-                try
-                {
-                    byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
-                    return fileBytes.Length > 0
-                        ? ServiceResult<byte[]>.Success(fileBytes)
-                        : ServiceResult<byte[]>.Failure(
-                            "Изображение вата повреждено",
-                            HttpStatusCode.NotFound
-                        );
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Ошибка чтения файла {FilePath}", filePath);
-                }
-            }
-            // === Если аватар не найден ===
-            _logger.LogWarning("Файл не найден или недоступен: {FilePath}", filePath);
-
-            // Это был поиск дефолтного? Ну что, фатальная ошибка
-            if (fileName is null)
-            {
-                _logger.LogCritical("Дефолтное изображение чата {DefaultImage} отсутствует!", DEFAULT_CHAT_IMAGE_NAME);
-                return ServiceResult<byte[]>.Failure(
-                    ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError
-                );
-            }
-
-            // Это был поиск конкретного? Выдать дефолт
             string defaultPath = Path.Combine(_chatImagesPath, DEFAULT_CHAT_IMAGE_NAME);
             if (File.Exists(defaultPath))
             {
@@ -120,6 +79,82 @@ namespace LunkvayAPI.Chats.Services
                 {
                     _logger.LogError(ex, "Ошибка чтения дефолтного изображения чата {FilePath}", defaultPath);
                 }
+            }
+
+            _logger.LogCritical("Дефолтное изображение чата {DefaultImage} отсутствует!", DEFAULT_CHAT_IMAGE_NAME);
+            return ServiceResult<byte[]>.Failure(
+                ErrorCode.InternalServerError.GetDescription(),
+                HttpStatusCode.InternalServerError
+            );
+        }
+
+        public async Task<ServiceResult<byte[]>> GetChatImageByChatId(Guid userId, Guid chatId)
+        {
+            if (chatId == Guid.Empty)
+                return ServiceResult<byte[]>.Failure("Id чата не может быть пустым");
+
+            if (string.IsNullOrEmpty(_chatImagesPath))
+            {
+                _logger.LogCritical("Путь к изображениям чата не задан!");
+                return ServiceResult<byte[]>.Failure(
+                    ErrorCode.InternalServerError.GetDescription(), HttpStatusCode.InternalServerError
+                );
+            }
+
+            ServiceResult<Chat> chatResult =  await _chatService.GetChatBySystem(chatId);
+            if (!chatResult.IsSuccess || chatResult.Result is null)
+                return ServiceResult<byte[]>.Failure(
+                    chatResult.Error ?? ErrorCode.InternalServerError.GetDescription(),
+                    chatResult.Error is null ? HttpStatusCode.InternalServerError : chatResult.StatusCode
+                );
+
+            var chat = chatResult.Result;
+
+            bool isChatMember = await _chatMemberService.ExistAnyChatMembersBySystem(
+                cm => cm.ChatId == chatId && cm.MemberId == userId && !cm.IsDeleted
+            );
+
+            if (!isChatMember)
+                return ServiceResult<byte[]>.Failure("Вы не являетесь участником этого чата", HttpStatusCode.Forbidden);
+
+            if (chat.Type == ChatType.Personal)
+            {
+                List<ChatMember> members = await _chatMemberService.GetChatMembersByChatIdBySystem(chatId);
+                var member = members.FirstOrDefault(cm => cm.MemberId != userId && !cm.IsDeleted);
+                if (member == null)
+                    return await GetDefaultChatImage();
+
+                return await _avatarService.GetUserAvatarByUserId(member.MemberId);
+            }
+            else if (chat.Type == ChatType.Group)
+            {
+                string? fileName = await _dbContext.ChatImages
+                .AsNoTracking()
+                .Where(ci => ci.ChatId == chatId)
+                .Select(ci => ci.FileName)
+                .FirstOrDefaultAsync();
+
+                string filePath = Path.Combine(_chatImagesPath, fileName ?? DEFAULT_CHAT_IMAGE_NAME);
+
+                if (File.Exists(filePath))
+                {
+                    try
+                    {
+                        byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
+                        return fileBytes.Length > 0
+                            ? ServiceResult<byte[]>.Success(fileBytes)
+                            : ServiceResult<byte[]>.Failure(
+                                "Изображение вата повреждено",
+                                HttpStatusCode.NotFound
+                            );
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Ошибка чтения файла {FilePath}", filePath);
+                    }
+                }
+
+                return await GetDefaultChatImage();
             }
 
             return ServiceResult<byte[]>.Failure(

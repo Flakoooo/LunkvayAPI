@@ -7,8 +7,11 @@ namespace LunkvayAPI.Chats.Services.Interfaces
     public interface IChatSystemService
     {
         Task<ServiceResult<Chat>> GetChatBySystem(Guid chatId);
+        Task<Guid?> FindPersonalChatBetweenUsersBySystem(
+            Guid user1Id, Guid user2Id
+        );
         Task<ServiceResult<Chat>> CreatePersonalChatBySystem(
-            Guid creatorId, Guid receiverId, ChatType chatType, string? name
+            ChatType chatType, string? name
         );
         Task<ServiceResult<Chat>> UpdateChatLastMessageBySystem(
             Guid chatId, Guid lastMessageId
