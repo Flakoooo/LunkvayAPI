@@ -1,5 +1,6 @@
 ﻿using LunkvayAPI.Avatars.Services;
 using LunkvayAPI.Chats.Services.Interfaces;
+using LunkvayAPI.Common.Enums.ErrorCodes;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
@@ -101,7 +102,7 @@ namespace LunkvayAPI.Chats.Services
                 );
             }
 
-            ServiceResult<Chat> chatResult =  await _chatService.GetChatBySystem(chatId);
+            ServiceResult<Chat> chatResult =  await _chatService.GetChat(chatId);
             if (!chatResult.IsSuccess || chatResult.Result is null)
                 return ServiceResult<byte[]>.Failure(
                     chatResult.Error ?? ErrorCode.InternalServerError.GetDescription(),
@@ -110,16 +111,12 @@ namespace LunkvayAPI.Chats.Services
 
             var chat = chatResult.Result;
 
-            bool isChatMember = await _chatMemberService.ExistAnyChatMembersBySystem(
-                cm => cm.ChatId == chatId && cm.MemberId == userId && !cm.IsDeleted
-            );
-
-            if (!isChatMember)
+            if (!await _chatMemberService.ExistChatMembers(chatId, userId))
                 return ServiceResult<byte[]>.Failure("Вы не являетесь участником этого чата", HttpStatusCode.Forbidden);
 
             if (chat.Type == ChatType.Personal)
             {
-                List<ChatMember> members = await _chatMemberService.GetChatMembersByChatIdBySystem(chatId);
+                List<ChatMember> members = await _chatMemberService.GetChatMembersByChatId(chatId);
                 var member = members.FirstOrDefault(cm => cm.MemberId != userId && !cm.IsDeleted);
                 if (member == null)
                     return await GetDefaultChatImage();
@@ -177,14 +174,11 @@ namespace LunkvayAPI.Chats.Services
             }
 
             // Проверяем чат
-            ServiceResult<Chat> chatResult = await _chatService.GetChatBySystem(chatId);
+            ServiceResult<Chat> chatResult = await _chatService.GetChat(chatId);
             if (!chatResult.IsSuccess)
                 return ServiceResult<byte[]>.Failure("Чат не найден");
 
-            bool validation = await _chatMemberService.ExistAnyChatMembersBySystem(cm =>
-                cm.ChatId == chatId && cm.MemberId == userId && cm.Role != ChatMemberRole.Member
-            );
-            if (!validation)
+            if (!await _chatMemberService.ExistChatMembersOwnerOrAdministrator(chatId, userId))
                 return ServiceResult<byte[]>.Failure("Отказано в доступе");
 
             try
@@ -275,14 +269,11 @@ namespace LunkvayAPI.Chats.Services
             }
 
             // Проверяем чат
-            ServiceResult<Chat> chatResult = await _chatService.GetChatBySystem(chatId);
+            ServiceResult<Chat> chatResult = await _chatService.GetChat(chatId);
             if (!chatResult.IsSuccess)
                 return ServiceResult<bool>.Failure("Чат не найден");
 
-            bool validation = await _chatMemberService.ExistAnyChatMembersBySystem(cm =>
-                cm.ChatId == chatId && cm.MemberId == userId && cm.Role != ChatMemberRole.Member
-            );
-            if (!validation)
+            if (!await _chatMemberService.ExistChatMembersOwnerOrAdministrator(chatId, userId))
                 return ServiceResult<bool>.Failure("Отказано в доступе");
 
             using var transaction = await _dbContext.Database.BeginTransactionAsync();

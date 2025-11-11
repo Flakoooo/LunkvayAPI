@@ -1,8 +1,8 @@
-﻿using LunkvayAPI.Common.Results;
+﻿using LunkvayAPI.Common.Enums.ErrorCodes;
+using LunkvayAPI.Common.Results;
 using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
-using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Friends.Models.DTO;
 using LunkvayAPI.Friends.Models.Enums;
 using LunkvayAPI.Friends.Models.Requests;

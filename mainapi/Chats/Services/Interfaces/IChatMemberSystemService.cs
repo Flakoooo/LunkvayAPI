@@ -1,21 +1,24 @@
 ﻿using LunkvayAPI.Common.Results;
 using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
-using System.Linq.Expressions;
 
 namespace LunkvayAPI.Chats.Services.Interfaces
 {
     public interface IChatMemberSystemService
     {
-        Task<bool> ExistAnyChatMembersBySystem(Expression<Func<ChatMember, bool>> predicate);
-        Task<List<ChatMember>> GetChatMembersByChatIdBySystem(Guid chatId);
-        Task<ServiceResult<ChatMember>> CreateMemberBySystem(
+        Task<bool> ExistChatMembers(Guid chatId, Guid userId);
+        Task<bool> ExistChatMembersOwnerOrAdministrator(Guid chatId, Guid userId);
+
+
+        Task<ChatMember?> GetChatMemberByChatIdAndMemberId(Guid chatId, Guid memberId);
+        Task<List<ChatMember>> GetChatMembersByChatId(Guid chatId);
+        Task<ServiceResult<ChatMember>> CreateMember(
             Guid chatId, Guid memberId, ChatMemberRole role
         );
-        Task<ServiceResult<List<ChatMember>>> CreatePersonalMembersBySystem(
+        Task<ServiceResult<List<ChatMember>>> CreatePersonalMembers(
             Guid chatId, Guid memberId1, Guid memberId2
         );
-        Task<ServiceResult<List<ChatMember>>> CreateGroupMembersBySystem(
+        Task<ServiceResult<List<ChatMember>>> CreateGroupMembers(
             Guid chatId, Guid creatorId, IList<Guid> members
         );
     }

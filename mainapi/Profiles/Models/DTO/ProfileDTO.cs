@@ -9,6 +9,7 @@ namespace LunkvayAPI.Profiles.Models.DTO
         public string? Status { get; set; }
         public string? About { get; set; }
         public int? FriendsCount { get; set; }
-        public IEnumerable<UserListItemDTO>? Friends { get; set; }
+        public IReadOnlyList<UserListItemDTO>? Friends { get; set; }
+        public DateTime? UpdatedAt { get; set; }
     }
 }

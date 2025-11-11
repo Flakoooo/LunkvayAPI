@@ -1,6 +1,5 @@
 ﻿using LunkvayAPI.Chats.Models.DTO;
 using LunkvayAPI.Chats.Services.Interfaces;
-using LunkvayAPI.Common.DTO;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
@@ -20,7 +19,7 @@ namespace LunkvayAPI.Chats.Services
 
         private static ChatMessageDTO MapToDto(
             ChatMessage message,
-            Guid senderid, string? userName, string? firstName, string? LastName, bool? isOnline,
+            Guid? senderid, string? userName, string? firstName, string? LastName, bool? isOnline,
             bool isCurrentUser
         ) => new()
         {
@@ -60,7 +59,7 @@ namespace LunkvayAPI.Chats.Services
                 chatId, 
                 MapToDto(
                     newMessage,
-                    Guid.Empty, null, null, null, null,
+                    null, null, null, null, null,
                     false
                 )
             );

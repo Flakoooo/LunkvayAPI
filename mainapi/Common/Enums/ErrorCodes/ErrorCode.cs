@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace LunkvayAPI.Data.Enums
+namespace LunkvayAPI.Common.Enums.ErrorCodes
 {
     public enum ErrorCode
     {

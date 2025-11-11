@@ -1,10 +1,10 @@
 ﻿using LunkvayAPI.Avatars.Models.Enums;
-using LunkvayAPI.Common.DTO;
+using LunkvayAPI.Common.Enums.ErrorCodes;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
-using LunkvayAPI.Data.Enums;
+using LunkvayAPI.Profiles.Services;
 using LunkvayAPI.Users.Services;
 using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
@@ -17,7 +17,8 @@ namespace LunkvayAPI.Avatars.Services
     {
         private readonly ILogger<AvatarService> _logger;
         private readonly LunkvayDBContext _dbContext;
-        private readonly IUserService _userService;
+        private readonly IUserSystemService _userService;
+        private readonly IProfileSystemService _profileService;
         private readonly string? _avatarsPath;
 
         private const string DEFAULT_IMAGE_EXTENSION = "webp";
@@ -29,7 +30,8 @@ namespace LunkvayAPI.Avatars.Services
             IConfiguration configuration,
             ILogger<AvatarService> logger,
             LunkvayDBContext lunkvayDBContext,
-            IUserService userService
+            IUserSystemService userService,
+            IProfileSystemService profileService
         )
         {
             string basePath = configuration[CONFIGURATION_BASE_PATH] ??
@@ -40,6 +42,7 @@ namespace LunkvayAPI.Avatars.Services
             _logger = logger;
             _dbContext = lunkvayDBContext;
             _userService = userService;
+            _profileService = profileService;
             _avatarsPath = Path.Combine(basePath, avatars);
 
             if (string.IsNullOrEmpty(DEFAULT_USER_IMAGE_NAME))
@@ -136,11 +139,10 @@ namespace LunkvayAPI.Avatars.Services
             }
 
             // Проверяем пользователя
-            ServiceResult<UserDTO> userResult = await _userService.GetUserById(userId);
-            if (!userResult.IsSuccess || userResult.Result is null || userResult.Result.UserName is null)
+            if (await _userService.GetUserById(userId) is null)
                 return ServiceResult<byte[]>.Failure(
-                    userResult.Error ?? ErrorCode.InternalServerError.GetDescription(),
-                    userResult.Error is null ? HttpStatusCode.InternalServerError : userResult.StatusCode
+                    UsersErrorCode.UserNotFound.GetDescription(),
+                    HttpStatusCode.NotFound
                 );
 
             try
@@ -198,6 +200,8 @@ namespace LunkvayAPI.Avatars.Services
                         var oldFilePath = Path.Combine(_avatarsPath, oldFileName);
                         if (File.Exists(oldFilePath)) File.Delete(oldFilePath);
                     }
+
+                    await _profileService.UpdateProfileUpdatedTime(userId);
 
                     await transaction.CommitAsync();
                     return ServiceResult<byte[]>.Success(webpData);

@@ -1,33 +1,41 @@
 ﻿using LunkvayAPI.Chats.Services.Interfaces;
-using LunkvayAPI.Common.DTO;
+using LunkvayAPI.Common.Enums.ErrorCodes;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
 using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Linq.Expressions;
 
 namespace LunkvayAPI.Chats.Services
 {
     public class ChatMemberSystemService(
-        ILogger<ChatMemberSystemService> logger,
         LunkvayDBContext lunkvayDBContext
     ) : IChatMemberSystemService
     {
-        private readonly ILogger<ChatMemberSystemService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
 
-        public async Task<bool> ExistAnyChatMembersBySystem(Expression<Func<ChatMember, bool>> predicate)
-            => await _dbContext.ChatMembers.AsNoTracking().AnyAsync(predicate);
+        public async Task<bool> ExistChatMembers(Guid chatId, Guid userId)
+            => await _dbContext.ChatMembers.AsNoTracking().AnyAsync(cm =>
+                cm.ChatId == chatId && cm.MemberId == userId && !cm.IsDeleted
+            );
 
-        public async Task<List<ChatMember>> GetChatMembersByChatIdBySystem(Guid chatId)
+        public async Task<bool> ExistChatMembersOwnerOrAdministrator(Guid chatId, Guid userId)
+            => await _dbContext.ChatMembers.AsNoTracking().AnyAsync(cm =>
+                cm.ChatId == chatId && cm.MemberId == userId && cm.Role != ChatMemberRole.Member && !cm.IsDeleted
+            );
+
+
+        public async Task<ChatMember?> GetChatMemberByChatIdAndMemberId(Guid chatId, Guid memberId)
+            => await _dbContext.ChatMembers
+                .FirstOrDefaultAsync(cm => cm.ChatId == chatId && cm.MemberId == memberId);
+
+        public async Task<List<ChatMember>> GetChatMembersByChatId(Guid chatId)
             => await _dbContext.ChatMembers
                 .Where(cm => cm.ChatId == chatId)
                 .ToListAsync();
 
-        public async Task<ServiceResult<ChatMember>> CreateMemberBySystem(
+        public async Task<ServiceResult<ChatMember>> CreateMember(
             Guid chatId, Guid memberId, ChatMemberRole role
         )
         {
@@ -47,7 +55,7 @@ namespace LunkvayAPI.Chats.Services
             return ServiceResult<ChatMember>.Success(chatMember);
         }
 
-        public async Task<ServiceResult<List<ChatMember>>> CreatePersonalMembersBySystem(
+        public async Task<ServiceResult<List<ChatMember>>> CreatePersonalMembers(
             Guid chatId, Guid memberId1, Guid memberId2
         )
         {
@@ -80,7 +88,7 @@ namespace LunkvayAPI.Chats.Services
             return ServiceResult<List<ChatMember>>.Success(members);
         }
 
-        public async Task<ServiceResult<List<ChatMember>>> CreateGroupMembersBySystem(
+        public async Task<ServiceResult<List<ChatMember>>> CreateGroupMembers(
             Guid chatId, Guid creatorId, IList<Guid> members
         )
         {

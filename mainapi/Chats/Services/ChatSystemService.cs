@@ -8,14 +8,12 @@ using Microsoft.EntityFrameworkCore;
 namespace LunkvayAPI.Chats.Services
 {
     public class ChatSystemService(
-        ILogger<ChatSystemService> logger,
         LunkvayDBContext lunkvayDBContext
     ) : IChatSystemService
     {
-        private readonly ILogger<ChatSystemService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
 
-        public async Task<ServiceResult<Chat>> GetChatBySystem(Guid chatId)
+        public async Task<ServiceResult<Chat>> GetChat(Guid chatId)
         {
             if (chatId == Guid.Empty)
                 return ServiceResult<Chat>.Failure("Id чата не может быть пустым");
@@ -29,7 +27,7 @@ namespace LunkvayAPI.Chats.Services
             return ServiceResult<Chat>.Success(chat);
         }
 
-        public async Task<Guid?> FindPersonalChatBetweenUsersBySystem(
+        public async Task<Guid?> FindPersonalChatBetweenUsers(
             Guid user1Id, Guid user2Id
         ) => await _dbContext.ChatMembers
             .Where(cm1 => cm1.MemberId == user1Id && !cm1.IsDeleted)
@@ -43,7 +41,7 @@ namespace LunkvayAPI.Chats.Services
                 (chatId, chat) => chatId)
             .FirstOrDefaultAsync();
 
-        public async Task<ServiceResult<Chat>> CreatePersonalChatBySystem(
+        public async Task<ServiceResult<Chat>> CreatePersonalChat(
             ChatType chatType, string? name
         )
         {
@@ -63,7 +61,7 @@ namespace LunkvayAPI.Chats.Services
             return ServiceResult<Chat>.Success(chat);
         }
 
-        public async Task<ServiceResult<Chat>> UpdateChatLastMessageBySystem(
+        public async Task<ServiceResult<Chat>> UpdateChatLastMessage(
             Guid chatId, Guid lastMessageId
         )
         {

@@ -24,20 +24,23 @@ namespace LunkvayAPI.Data.Entities
         [Column("last_name")]
         public string LastName { get; set; } = "";
 
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
         [Column("is_deleted")]
         public bool IsDeleted { get; set; } = false;
 
+        [Column("is_online")]
+        public bool IsOnline { get; set; }
+
+        [Column("created_at")]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [Column("updated_at")]
+        public DateTime? UpdatedAt { get; set; } = null;
+
         [Column("deleted_at")]
-        public DateTime? DeletedAt { get; set; }
+        public DateTime? DeletedAt { get; set; } = null;
 
         [Column("last_login")]
         public DateTime LastLogin { get; set; } = DateTime.UtcNow;
-
-        [Column("is_online")]
-        public bool IsOnline { get; set; }
 
 
         public string FullName => $"{FirstName} {LastName}";

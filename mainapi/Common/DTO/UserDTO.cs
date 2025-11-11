@@ -6,9 +6,10 @@
         public required string UserName { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
-        public DateTime CreatedAt { get; set; }
         public bool IsDeleted { get; set; } = false;
-        public DateTime LastLogin { get; set; }
         public bool IsOnline { get; set; } = false;
+        public DateTime CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public DateTime LastLogin { get; set; }
     }
 }

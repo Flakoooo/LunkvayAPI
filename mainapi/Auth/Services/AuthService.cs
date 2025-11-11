@@ -1,6 +1,7 @@
 ﻿using LunkvayAPI.Auth.Models.Enums;
 using LunkvayAPI.Auth.Models.Requests;
 using LunkvayAPI.Auth.Models.Utils;
+using LunkvayAPI.Common.Enums.ErrorCodes;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data.Entities;
@@ -19,13 +20,15 @@ namespace LunkvayAPI.Auth.Services
     {
         private readonly JwtSettings _jwtSettings;
         private readonly ILogger<AuthService> _logger;
-        private readonly IUserService _userService;
-        private readonly IProfileService _profileService;
+        private readonly IUserSystemService _userService;
+        private readonly IProfileSystemService _profileService;
 
 
         public AuthService(
-            IOptions<JwtSettings> jwtOptions, ILogger<AuthService> logger,
-            IUserService userService, IProfileService profileService
+            IOptions<JwtSettings> jwtOptions, 
+            ILogger<AuthService> logger,
+            IUserSystemService userService, 
+            IProfileSystemService profileService
         )
         {
             _jwtSettings = jwtOptions.Value;
@@ -41,15 +44,14 @@ namespace LunkvayAPI.Auth.Services
         {
             _logger.LogInformation("({Date}) Осуществляется вход для {Email}", DateTime.Now, loginRequest.Email);
 
-            ServiceResult<User?> result = await _userService.GetUserByEmail(loginRequest.Email);
-            if (!result.IsSuccess || result.Result is null || 
-                !BCrypt.Net.BCrypt.Verify(loginRequest.Password, result.Result.PasswordHash)
+            var user = await _userService.GetUserByEmail(loginRequest.Email);
+            if (user is null ||
+                !BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.PasswordHash)
             ) 
                 return ServiceResult<string>.Failure(
-                    AuthErrorCode.InvalidCredentials.GetDescription(), HttpStatusCode.UnprocessableContent
+                    AuthErrorCode.InvalidCredentials.GetDescription(), 
+                    HttpStatusCode.UnprocessableContent
                 );
-
-            User user = result.Result;
 
             var claims = new List<Claim>() 
             {
@@ -81,27 +83,35 @@ namespace LunkvayAPI.Auth.Services
 
         public async Task<ServiceResult<User>> Register(RegisterRequest registerRequest)
         {
-            ServiceResult<User> userResult = await _userService.CreateUser(
+            if (await _userService.ExistsUserEmail(registerRequest.Email))
+                return ServiceResult<User>.Failure(
+                    UsersErrorCode.EmailAlreadyExists.GetDescription(),
+                    HttpStatusCode.Conflict
+                );
+
+            if (await _userService.ExistsUserUserName(registerRequest.UserName))
+                return ServiceResult<User>.Failure(
+                    UsersErrorCode.UsernameAlreadyExists.GetDescription(),
+                    HttpStatusCode.Conflict
+                );
+
+            var user = await _userService.CreateUser(
                 registerRequest.UserName, registerRequest.Email, registerRequest.Password,
                 registerRequest.FirstName ?? "", registerRequest.LastName ?? ""
             );
-            if (!userResult.IsSuccess || userResult.Result is null)
-                return userResult.Error is not null
-                    ? ServiceResult<User>.Failure(userResult.Error, userResult.StatusCode)
-                    : ServiceResult<User>.Failure(
-                        AuthErrorCode.RegistrationFailed.GetDescription(), HttpStatusCode.InternalServerError
-                    );
+            if (user is null)
+                return ServiceResult<User>.Failure(
+                    AuthErrorCode.RegistrationFailed.GetDescription(), 
+                    HttpStatusCode.InternalServerError
+                );
 
-            ServiceResult<Profile> profileResult = await _profileService.CreateProfile(userResult.Result.Id);
-            if (!profileResult.IsSuccess || profileResult.Result is null)
-                return userResult.Error is not null
-                    ? ServiceResult<User>.Failure(userResult.Error, userResult.StatusCode)
-                    : ServiceResult<User>.Failure(
-                        AuthErrorCode.ProfileCreationFailed.GetDescription(),
-                        HttpStatusCode.InternalServerError
-                    );
+            if (await _profileService.CreateProfile(user.Id) is null)
+                return ServiceResult<User>.Failure(
+                    AuthErrorCode.ProfileCreationFailed.GetDescription(),
+                    HttpStatusCode.InternalServerError
+                );
 
-            return ServiceResult<User>.Success(userResult.Result);
+            return ServiceResult<User>.Success(user);
         }
     }
 }

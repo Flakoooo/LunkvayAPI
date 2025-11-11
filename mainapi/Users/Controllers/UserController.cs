@@ -13,7 +13,7 @@ namespace LunkvayAPI.Users.Controllers
         private readonly ILogger<UserController> _logger = logger;
 
         [HttpGet("{userId}")]
-        public async Task<IActionResult> GetUserById(Guid userId)
+        public async Task<ActionResult<UserDTO>> GetUserById(Guid userId)
         {
             _logger.LogInformation("Запрос пользователя {UserId}", userId);
             ServiceResult<UserDTO> result = await _userService.GetUserById(userId);
@@ -28,10 +28,10 @@ namespace LunkvayAPI.Users.Controllers
         }
 
         [HttpGet("all")]
-        public async Task<IActionResult> GetUsers()
+        public async Task<ActionResult<IReadOnlyList<UserDTO>>> GetUsers()
         {
             _logger.LogInformation("Запрос списка пользователей");
-            ServiceResult<IEnumerable<UserDTO>> result = await _userService.GetUsers();
+            ServiceResult<List<UserDTO>> result = await _userService.GetUsers();
 
             if (result.IsSuccess)
             {

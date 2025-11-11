@@ -89,8 +89,10 @@ namespace LunkvayAPI
                     )
             );
 
-            //Auth
+            //User
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IUserSystemService, UserSystemService>();
+            //Auth
             services.AddScoped<IAuthService, AuthService>();
             //Profiles
             services.AddScoped<IProfileService, ProfileService>();

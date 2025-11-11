@@ -2,6 +2,7 @@
 using LunkvayAPI.Chats.Models.Requests;
 using LunkvayAPI.Chats.Services.Interfaces;
 using LunkvayAPI.Common.DTO;
+using LunkvayAPI.Common.Enums.ErrorCodes;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
@@ -10,20 +11,21 @@ using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Users.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Net;
 
 namespace LunkvayAPI.Chats.Services
 {
     public class ChatMemberService(
         ILogger<ChatMemberService> logger,
         LunkvayDBContext lunkvayDBContext,
-        IUserService userService,
+        IUserSystemService userService,
         IChatMessageSystemService chatMessageService,
         IChatNotificationService chatNotificationService
     ) : IChatMemberService
     {
         private readonly ILogger<ChatMemberService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
-        private readonly IUserService _userService = userService;
+        private readonly IUserSystemService _userService = userService;
         private readonly IChatMessageSystemService _chatMessageService = chatMessageService;
         private readonly IChatNotificationService _chatNotificationService = chatNotificationService;
 
@@ -160,9 +162,11 @@ namespace LunkvayAPI.Chats.Services
             Role = chatMember.Role
         };
 
-        private static string FormatUserName(UserDTO? user)
+        private static string FormatUserName(User? user, string? memberName = null)
         {
-            if (user == null) return "Пользователь";
+            if (memberName is not null) return memberName;
+
+            if (user is null) return "Пользователь";
 
             if (!string.IsNullOrWhiteSpace(user.FirstName) && !string.IsNullOrWhiteSpace(user.LastName))
                 return $"{user.FirstName} {user.LastName}";
@@ -226,8 +230,12 @@ namespace LunkvayAPI.Chats.Services
             if (chat?.Type == ChatType.Personal)
                 return ServiceResult<ChatMemberDTO>.Failure("Нельзя добавить пользователя в личный чат");
 
-            ServiceResult<UserDTO> userResult = await _userService.GetUserById(request.MemberId);
-            var user = userResult.Result;
+            var user = await _userService.GetUserById(request.MemberId);
+            if (user is null)
+                return ServiceResult<ChatMemberDTO>.Failure(
+                    UsersErrorCode.UserNotFound.GetDescription(),
+                    HttpStatusCode.NotFound
+                );
 
             // Проверяем, не является ли пользователь уже участником
             var existingMember = await _dbContext.ChatMembers
@@ -249,7 +257,7 @@ namespace LunkvayAPI.Chats.Services
                 await _dbContext.SaveChangesAsync();
 
                 await _chatMessageService.CreateSystemChatMessage(
-                    request.ChatId, $"{FormatUserName(user)} вернулся в чат", SystemMessageType.UserRejoined
+                    request.ChatId, $"{FormatUserName(user, existingMember.MemberName)} вернулся в чат", SystemMessageType.UserRejoined
                 );
 
                 var restoredMember = await _dbContext.ChatMembers
@@ -367,11 +375,10 @@ namespace LunkvayAPI.Chats.Services
 
             await _dbContext.SaveChangesAsync();
 
-            ServiceResult<UserDTO> userResult = await _userService.GetUserById(request.MemberId);
-            var user = userResult.Result;
+            var user = await _userService.GetUserById(request.MemberId);
 
             await _chatMessageService.CreateSystemChatMessage(
-                request.ChatId, $"{FormatUserName(user)} покинул чат", SystemMessageType.UserLeft
+                request.ChatId, $"{FormatUserName(user, chatMember.MemberName)} покинул чат", SystemMessageType.UserLeft
             );
 
             await _chatNotificationService.DeleteMember(request.ChatId, request.MemberId);

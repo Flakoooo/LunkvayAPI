@@ -1,10 +1,8 @@
 ﻿using LunkvayAPI.Common.DTO;
+using LunkvayAPI.Common.Enums.ErrorCodes;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
-using LunkvayAPI.Data.Entities;
-using LunkvayAPI.Data.Enums;
-using LunkvayAPI.Users.Models.Enums;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 
@@ -41,16 +39,7 @@ namespace LunkvayAPI.Users.Services
             return ServiceResult<UserDTO>.Success(result);
         }
 
-        public async Task<ServiceResult<User?>> GetUserByEmail(string email)
-        {
-            var result = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
-            if (result is null)
-                return ServiceResult<User?>.Failure(UsersErrorCode.UserNotFound.GetDescription(), HttpStatusCode.NotFound);
-
-            return ServiceResult<User?>.Success(result);
-        }
-
-        public async Task<ServiceResult<IEnumerable<UserDTO>>> GetUsers()
+        public async Task<ServiceResult<List<UserDTO>>> GetUsers()
         {
             var result = await _dbContext.Users
                 .AsNoTracking()
@@ -67,27 +56,7 @@ namespace LunkvayAPI.Users.Services
                 })
                 .ToListAsync();
 
-            return ServiceResult<IEnumerable<UserDTO>>.Success(result);
-        }
-
-        public async Task<ServiceResult<User>> CreateUser(
-            string userName, string email, string password,
-            string firstName, string lastName
-        )
-        {
-            if (await _dbContext.Users.AsNoTracking().AnyAsync(u => u.Email == email))
-                return ServiceResult<User>.Failure(UsersErrorCode.EmailAlreadyExists.GetDescription(), HttpStatusCode.Conflict);
-
-            if (await _dbContext.Users.AsNoTracking().AnyAsync(u => u.UserName == userName))
-                return ServiceResult<User>.Failure(UsersErrorCode.UsernameAlreadyExists.GetDescription(), HttpStatusCode.Conflict);
-
-            var user = User.Create(userName, email, password, firstName, lastName);
-
-            await _dbContext.Users.AddAsync(user);
-
-            await _dbContext.SaveChangesAsync();
-
-            return ServiceResult<User>.Success(user);
+            return ServiceResult<List<UserDTO>>.Success(result);
         }
     }
 }

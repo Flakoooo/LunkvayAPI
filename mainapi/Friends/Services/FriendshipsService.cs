@@ -1,4 +1,5 @@
 ﻿using LunkvayAPI.Common.DTO;
+using LunkvayAPI.Common.Enums.ErrorCodes;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
@@ -16,37 +17,34 @@ namespace LunkvayAPI.Friends.Services
     public class FriendshipsService(
         ILogger<FriendshipsService> logger,
         LunkvayDBContext lunkvayDBContext,
-        IUserService userService
+        IUserSystemService userService
     ) : IFriendshipsService
     {
         private readonly ILogger<FriendshipsService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
-        private readonly IUserService _userService = userService;
+        private readonly IUserSystemService _userService = userService;
 
         private async Task<ServiceResult<FriendshipDTO>> GetFriendDTO(Friendship friendship, Guid currentUserId)
         {
             var friendUserId = friendship.UserId1 == currentUserId ? friendship.UserId2 : friendship.UserId1;
 
-            var userResult = await _userService.GetUserById(friendUserId);
-            if (!userResult.IsSuccess || userResult.Result is null)
+            var user = await _userService.GetUserById(friendUserId);
+            if (user is null)
                 return ServiceResult<FriendshipDTO>.Failure(
-                    FriendshipErrorCode.FriendDataRetrievalFailed.GetDescription(),
-                    HttpStatusCode.InternalServerError
+                    UsersErrorCode.UserNotFound.GetDescription(),
+                    HttpStatusCode.NotFound
                 );
 
-            UserDTO user = userResult.Result;
-
-            var labels = await _dbContext.FriendshipLabels
+            var query = _dbContext.FriendshipLabels
                 .AsNoTracking()
                 .Where(fl => fl.FriendshipId == friendship.Id)
-                .Select(fl => new FriendshipLabelDTO { Id = fl.Id, Label = fl.Label })
-                .ToListAsync();
+                .Select(fl => new FriendshipLabelDTO { Id = fl.Id, Label = fl.Label });
 
             var friend = new FriendshipDTO()
             {
                 FriendshipId = friendship.Id,
                 Status = friendship.Status,
-                Labels = labels,
+                Labels = await query.ToListAsync(),
                 UserId = user.Id,
                 UserName = user.UserName,
                 FirstName = user.FirstName,

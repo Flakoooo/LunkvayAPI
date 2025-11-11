@@ -17,6 +17,9 @@ namespace LunkvayAPI.Data.Entities
         [Column("about")]
         public string? About { get; set; }
 
+        [Column("updated_at")]
+        public DateTime? UpdatedAt { get; set; }
+
 
 
         [ForeignKey("UserId")]

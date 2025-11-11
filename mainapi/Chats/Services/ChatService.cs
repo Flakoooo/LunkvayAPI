@@ -1,7 +1,7 @@
 ﻿using LunkvayAPI.Chats.Models.DTO;
 using LunkvayAPI.Chats.Models.Requests;
 using LunkvayAPI.Chats.Services.Interfaces;
-using LunkvayAPI.Common.DTO;
+using LunkvayAPI.Common.Enums.ErrorCodes;
 using LunkvayAPI.Common.Results;
 using LunkvayAPI.Common.Utils;
 using LunkvayAPI.Data;
@@ -9,13 +9,14 @@ using LunkvayAPI.Data.Entities;
 using LunkvayAPI.Data.Enums;
 using LunkvayAPI.Users.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 
 namespace LunkvayAPI.Chats.Services
 {
     public class ChatService(
         ILogger<ChatService> logger, 
         LunkvayDBContext lunkvayDBContext,
-        IUserService userService,
+        IUserSystemService userService,
         IChatMemberSystemService chatMemberService,
         IChatMessageSystemService chatMessageService,
         IChatNotificationService chatNotificationService
@@ -23,41 +24,57 @@ namespace LunkvayAPI.Chats.Services
     {
         private readonly ILogger<ChatService> _logger = logger;
         private readonly LunkvayDBContext _dbContext = lunkvayDBContext;
-        private readonly IUserService _userService = userService;
+        private readonly IUserSystemService _userService = userService;
         private readonly IChatMemberSystemService _chatMemberService = chatMemberService;
         private readonly IChatMessageSystemService _chatMessageService = chatMessageService;
         private readonly IChatNotificationService _chatNotificationService = chatNotificationService;
 
-        private static ChatDTO MapToChatDto(Chat chat, Guid currentUserId)
-            => new()
-            {
-                Id = chat.Id,
-                Name = GetChatName(chat, currentUserId),
-                Type = chat.Type,
-                LastMessage = chat.LastMessage != null 
-                    ? MapToMessageDto(chat.LastMessage, chat.Type, currentUserId) 
-                    : null,
-                CreatedAt = chat.CreatedAt,
-                MemberCount = chat.Members.Count
-            };
+        private static ChatDTO MapToChatDto(
+            Chat chat, Guid currentUserId, Dictionary<(Guid, Guid), string?> memberNamesDict
+        ) => new()
+        {
+            Id = chat.Id,
+            Name = GetChatName(chat, currentUserId),
+            Type = chat.Type,
+            LastMessage = MapToMessageDto(chat.LastMessage, chat.Type, currentUserId, memberNamesDict),
+            CreatedAt = chat.CreatedAt,
+            MemberCount = chat.Members.Count
+        };
 
         private static string? GetChatName(Chat chat, Guid currentUserId)
             => chat.Type == ChatType.Personal
                 ? chat.Members
                     .Where(m => m.MemberId != currentUserId)
-                    .Select(m => m.Member?.FullName)
-                    .FirstOrDefault()
+                    .Select(m => m.Member?.FullName ?? m.Member?.UserName) 
+                    .FirstOrDefault() ?? "Чат" 
                 : chat.Name;
 
-        private static ChatMessageDTO? MapToMessageDto(ChatMessage message, ChatType chatType, Guid currentUserId)
-            => message != null ? new ChatMessageDTO
+        private static ChatMessageDTO? MapToMessageDto(
+            ChatMessage? message, ChatType chatType, Guid currentUserId,
+            Dictionary<(Guid, Guid), string?> memberNamesDict
+        )
+        {
+            if (message == null) return null;
+
+            string? displayName = null;
+            if (message.SenderId.HasValue)
+            {
+                if (chatType == ChatType.Group)
+                {
+                    var key = (message.ChatId, message.SenderId.Value);
+                    displayName = memberNamesDict.TryGetValue(key, out var customName)
+                        ? customName
+                        : message.Sender?.UserName;
+                }
+                else
+                    displayName = message.Sender?.UserName;
+            }
+
+            return new ChatMessageDTO
             {
                 Id = message.Id,
-                Message = message.Message,
-                CreatedAt = message.CreatedAt,
-                SystemMessageType = message.SystemMessageType,
                 SenderId = message.SenderId,
-                SenderUserName = message.Sender?.UserName,
+                SenderUserName = displayName,
                 SenderFirstName = message.SenderId == currentUserId
                     ? "Вы"
                     : (chatType != ChatType.Personal
@@ -69,13 +86,19 @@ namespace LunkvayAPI.Chats.Services
                         ? message.Sender?.LastName[0].ToString()
                         : null
                     )
-                    : null
-            } : null;
+                    : null,
+                SenderIsOnline = false,
+                SystemMessageType = message.SystemMessageType,
+                Message = message.Message,
+                CreatedAt = message.CreatedAt,
+                UpdatedAt = message.UpdatedAt,
+                PinnedAt = message.PinnedAt,
+                IsMyMessage = message.SenderId == currentUserId
+            };
+        }
 
-        private static string FormatUserName(UserDTO? user)
+        private static string FormatUserName(User user)
         {
-            if (user == null) return "Пользователь";
-
             if (!string.IsNullOrWhiteSpace(user.FirstName) && !string.IsNullOrWhiteSpace(user.LastName))
                 return $"{user.FirstName} {user.LastName}";
 
@@ -95,8 +118,8 @@ namespace LunkvayAPI.Chats.Services
             _logger.LogInformation("({Date}) Запрос списка чатов для {UserId}", DateTime.Now, userId);
 
             var chats = await _dbContext.Chats
-                .Where(c => c.Members.Any(m => m.MemberId == userId) && !c.IsDeleted)
-                .Include(c => c.Members)
+                .Where(c => c.Members.Any(m => m.MemberId == userId && !m.IsDeleted) && !c.IsDeleted)
+                .Include(c => c.Members.Where(m => !m.IsDeleted))
                     .ThenInclude(m => m.Member)
                 .Include(c => c.LastMessage)
                     .ThenInclude(m => m!.Sender)
@@ -105,7 +128,24 @@ namespace LunkvayAPI.Chats.Services
                     : c.UpdatedAt ?? c.CreatedAt)
                 .ToListAsync();
 
-            var chatDtos = chats.Select(c => MapToChatDto(c, userId)).ToList();
+            var chatIds = chats.Select(c => c.Id).Distinct().ToList();
+            var senderIds = chats.Where(c => c.LastMessage?.SenderId != null)
+                                .Select(c => c.LastMessage!.SenderId!.Value)
+                                .Distinct()
+                                .ToList();
+
+            var memberNamesDict = new Dictionary<(Guid, Guid), string?>();
+            foreach (var chatId in chatIds)
+            {
+                var members = await _chatMemberService.GetChatMembersByChatId(chatId);
+                foreach (var member in members.Where(m => senderIds.Contains(m.MemberId)))
+                {
+                    memberNamesDict[(chatId, member.MemberId)] = member.MemberName;
+                }
+            }
+
+            // Синхронный маппинг с использованием словаря
+            var chatDtos = chats.Select(c => MapToChatDto(c, userId, memberNamesDict)).ToList();
 
             _logger.LogInformation("({Date}) Получено {Count} чатов", DateTime.UtcNow, chatDtos.Count);
             return ServiceResult<List<ChatDTO>>.Success(chatDtos);
@@ -136,16 +176,21 @@ namespace LunkvayAPI.Chats.Services
                 await _dbContext.Chats.AddAsync(chat);
                 await _dbContext.SaveChangesAsync();
 
-                var result =  await _chatMemberService.CreateGroupMembersBySystem(
+                ServiceResult<List<ChatMember>> result =  await _chatMemberService.CreateGroupMembers(
                     chat.Id, creatorId, chatRequest.Members
                 );
                 if (!result.IsSuccess)
-                    throw new Exception(
-                        result.Error ?? ErrorCode.InternalServerError.GetDescription()
+                    return ServiceResult<ChatDTO>.Failure(
+                        result.Error ?? ErrorCode.InternalServerError.GetDescription(),
+                        result.Error is null ? HttpStatusCode.InternalServerError : result.StatusCode
                     );
 
-                ServiceResult<UserDTO> userResult = await _userService.GetUserById(creatorId);
-                var user = userResult.Result;
+                var user = await _userService.GetUserById(creatorId);
+                if (user == null)
+                    return ServiceResult<ChatDTO>.Failure(
+                        UsersErrorCode.UserNotFound.GetDescription(),
+                        HttpStatusCode.NotFound
+                    );
 
                 ServiceResult<ChatMessage> messageResult = await _chatMessageService.CreateSystemChatMessage(
                     chat.Id, $"{FormatUserName(user)} создал чат {chat.Name}", SystemMessageType.ChatCreated
@@ -156,7 +201,7 @@ namespace LunkvayAPI.Chats.Services
 
                 await transaction.CommitAsync();
 
-                var chatDto = MapToChatDto(chat, creatorId);
+                var chatDto = MapToChatDto(chat, creatorId, []);
                 return ServiceResult<ChatDTO>.Success(chatDto);
             }
             catch (Exception ex)
@@ -223,7 +268,7 @@ namespace LunkvayAPI.Chats.Services
                 await _dbContext.SaveChangesAsync();
             }
 
-            var chatDto = MapToChatDto(chat, userId);
+            var chatDto = MapToChatDto(chat, userId, []);
 
             await _chatNotificationService.UpdateChat(chatId, chatDto);
 
