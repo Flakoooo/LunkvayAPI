@@ -4,6 +4,7 @@ using LunkvayAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LunkvayAPI.Data.Migrations
 {
     [DbContext(typeof(LunkvayDBContext))]
-    partial class LunkvayDBContextModelSnapshot : ModelSnapshot
+    [Migration("20251111175223_UserAndProfileAddUpdatedAt")]
+    partial class UserAndProfileAddUpdatedAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

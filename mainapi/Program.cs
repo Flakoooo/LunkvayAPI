@@ -96,10 +96,12 @@ namespace LunkvayAPI
             services.AddScoped<IAuthService, AuthService>();
             //Profiles
             services.AddScoped<IProfileService, ProfileService>();
+            services.AddScoped<IProfileSystemService, ProfileSystemService>();
             //Avatars
             services.AddScoped<IAvatarService, AvatarService>();
             //Friends
             services.AddScoped<IFriendshipsService, FriendshipsService>();
+            services.AddScoped<IFriendshipsSystemService, FriendshipsSystemService>();
             services.AddScoped<IFriendshipLabelsService, FriendshipLabelsService>();
             //Chats
             services.AddScoped<IChatNotificationService, ChatNotificationService>();
